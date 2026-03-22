@@ -61,8 +61,8 @@ func idHandler(w http.ResponseWriter, r *http.Request, store *storage) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	w.Header().Set("Location", url)
 	w.WriteHeader(http.StatusTemporaryRedirect)
-	_, _ = w.Write([]byte(url))
 }
 
 // handle adding url to storage POST `/`
