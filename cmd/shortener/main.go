@@ -51,23 +51,24 @@ func generateId(size int) string {
 // handle passed id GET `/{id}`
 func idHandler(w http.ResponseWriter, r *http.Request, store *storage) {
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	id := r.PathValue("id")
 	w.Header().Set("Content-Type", "text/plain")
 	url, ok := store.get(id)
 	if !ok {
-		w.WriteHeader(http.StatusNotFound)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	w.WriteHeader(http.StatusTemporaryRedirect)
 	_, _ = w.Write([]byte(url))
 }
 
 // handle adding url to storage POST `/`
 func postUrlHandler(w http.ResponseWriter, r *http.Request, store *storage) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	body, err := io.ReadAll(r.Body)
@@ -86,6 +87,8 @@ func postUrlHandler(w http.ResponseWriter, r *http.Request, store *storage) {
 		scheme = "https"
 	}
 	shortURL := scheme + "://" + r.Host + "/" + shortID
+	w.Header().Set("Content-Type", "text/plain")
+    w.WriteHeader(http.StatusCreated)
 	_, _ = w.Write([]byte(shortURL))
 }
 
