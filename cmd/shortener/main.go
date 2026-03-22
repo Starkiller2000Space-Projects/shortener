@@ -11,22 +11,22 @@ import (
 
 // storage for all ids and corresponding urls
 type storage struct {
-	mu   sync.RWMutex
-	data map[string]string
+	mu     sync.RWMutex
+	data   map[string]string
 	idSize int
 }
 
 // create new storage with desired size of ids
 func newStorage(idSize int) *storage {
 	return &storage{
-		data: make(map[string]string),
+		data:   make(map[string]string),
 		idSize: idSize,
 	}
 }
 
 // add url into storage and return generated id
 func (store *storage) add(value string) string {
-	store.mu.Lock() // lock storage for writing
+	store.mu.Lock()         // lock storage for writing
 	defer store.mu.Unlock() // unlock storage for writing after function completion
 	id := generateId(store.idSize)
 	store.data[id] = value
@@ -35,7 +35,7 @@ func (store *storage) add(value string) string {
 
 // get url by id from storage if exists
 func (store *storage) get(id string) (string, bool) {
-	store.mu.RLock() // lock storage for reading
+	store.mu.RLock()         // lock storage for reading
 	defer store.mu.RUnlock() // unlock storage for reading after function completion
 	value, ok := store.data[id]
 	return value, ok
@@ -43,8 +43,8 @@ func (store *storage) get(id string) (string, bool) {
 
 // generate ID  for url with desired size
 func generateId(size int) string {
-	b := make([]byte, size) // empty bytes array
-	_, _ = rand.Read(b)  // fill bytes array with random bytes
+	b := make([]byte, size)                               // empty bytes array
+	_, _ = rand.Read(b)                                   // fill bytes array with random bytes
 	return base64.RawURLEncoding.EncodeToString(b)[:size] // encode bytes array to string
 }
 
@@ -88,7 +88,7 @@ func postUrlHandler(w http.ResponseWriter, r *http.Request, store *storage) {
 	}
 	shortURL := scheme + "://" + r.Host + "/" + shortID
 	w.Header().Set("Content-Type", "text/plain")
-    w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusCreated)
 	_, _ = w.Write([]byte(shortURL))
 }
 
@@ -97,8 +97,8 @@ func main() {
 	idSize := 8
 	store := newStorage(idSize)
 	mux := http.NewServeMux()
-	mux.HandleFunc(`/{id}`, func(w http.ResponseWriter, r *http.Request) {idHandler(w, r, store)})
-	mux.HandleFunc(`/`, func(w http.ResponseWriter, r *http.Request) {postUrlHandler(w, r, store)})
+	mux.HandleFunc(`/{id}`, func(w http.ResponseWriter, r *http.Request) { idHandler(w, r, store) })
+	mux.HandleFunc(`/`, func(w http.ResponseWriter, r *http.Request) { postUrlHandler(w, r, store) })
 	err := http.ListenAndServe(":8080", mux)
 	if err != nil {
 		panic(err)
