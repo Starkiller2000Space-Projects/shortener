@@ -56,7 +56,7 @@ func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 	shortID := h.store.Add(longURL)
 	var shortURL string
 	if h.showAddr != "" {
-		shortURL = h.showAddr
+		shortURL = h.showAddr + "/" + shortID
 	} else {
 		scheme := "http"
 		if r.Header.Get("X-Forwarded-Proto") == "https" {
