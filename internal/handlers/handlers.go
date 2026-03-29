@@ -5,16 +5,19 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Starkiller2000Space-Projects/shortener/cmd/shortener/internal/storage"
+	"github.com/Starkiller2000Space-Projects/shortener/internal/storage"
 	"github.com/go-chi/chi/v5"
 )
 
+// Endpoints handler
 type Handler struct {
 	store storage.StorageInterface
+	showAddr string
 }
 
-func NewHandler(store storage.StorageInterface) *Handler {
-	return &Handler{store: store}
+// Get new endpoints handler
+func NewHandler(store storage.StorageInterface, showAddr string) *Handler {
+	return &Handler{store: store, showAddr: showAddr}
 }
 
 // handle passed id GET `/{id}`
@@ -51,11 +54,16 @@ func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shortID := h.store.Add(longURL)
-	scheme := "http"
-	if r.Header.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
+	var shortURL string
+	if h.showAddr != "" {
+		shortURL = h.showAddr
+	} else {
+		scheme := "http"
+		if r.Header.Get("X-Forwarded-Proto") == "https" {
+			scheme = "https"
+		}
+		shortURL = scheme + "://" + r.Host + "/" + shortID 
 	}
-	shortURL := scheme + "://" + r.Host + "/" + shortID
 	w.Header().Set("Content-Type", "text/plain")
     w.WriteHeader(http.StatusCreated)
 	_, _ = w.Write([]byte(shortURL))

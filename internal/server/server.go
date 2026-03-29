@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Starkiller2000Space-Projects/shortener/cmd/shortener/internal/handlers"
+	"github.com/Starkiller2000Space-Projects/shortener/internal/handlers"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )

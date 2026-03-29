@@ -35,7 +35,7 @@ func (m *mockStorage) Get(id string) (string, bool) {
 
 // create new router for handlers testing
 func newTestRouter(store *mockStorage) http.Handler {
-	h := NewHandler(store)
+	h := NewHandler(store, "")
 
 	r := chi.NewRouter()
 	r.HandleFunc("/", h.PostUrlHandler)
