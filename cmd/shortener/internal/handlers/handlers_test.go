@@ -1,4 +1,4 @@
-package main
+package handlers
 
 import (
 	"bytes"
@@ -14,11 +14,33 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// mock with storage interface
+type mockStorage struct {
+	data map[string]string
+	fixedID string
+}
+
+// add url to mock storage
+func (m *mockStorage) Add(url string) string {
+	m.data[m.fixedID] = url
+	return m.fixedID
+}
+
+// get url from mock storage
+func (m *mockStorage) Get(id string) (string, bool) {
+	val, ok := m.data[id]
+	return val, ok
+}
+
+// test getting url by its id
 func TestIdHandler(t *testing.T) {
-	idSize := 8
-	testStorage := newStorage(idSize)
-	existingUrl := "https://www.example.com/"
-	existingId := testStorage.add(existingUrl)
+	testStorage := &mockStorage{
+		data: make(map[string]string),
+		fixedID: "test1234",
+	}
+	existingUrl := "https://example.com/"
+	existingId := testStorage.Add(existingUrl)
+	handler := NewHandler(testStorage)
     type want struct {
         code        int
         response    string
@@ -71,7 +93,7 @@ func TestIdHandler(t *testing.T) {
 			request.SetPathValue("id", test.id)
 
             w := httptest.NewRecorder()
-            idHandler(w, request, testStorage)
+            handler.IdHandler(w, request)
             res := w.Result()
 
             assert.Equal(t, test.want.code, res.StatusCode)            
@@ -89,8 +111,12 @@ func TestIdHandler(t *testing.T) {
 
 
 func TestPostUrlHandler(t *testing.T) {
-	idSize := 8
-	testStorage := newStorage(idSize)
+	fixedId := "test1234"
+	testStorage := &mockStorage{
+		data: make(map[string]string),
+		fixedID: fixedId,
+	}
+	handler := NewHandler(testStorage)
     type want struct {
         code        int
         contentType string
@@ -148,7 +174,7 @@ func TestPostUrlHandler(t *testing.T) {
             request := httptest.NewRequest(test.method, "/", bytes.NewBuffer([]byte(test.request)))
 
             w := httptest.NewRecorder()
-            postUrlHandler(w, request, testStorage)
+            handler.PostUrlHandler(w, request)
             res := w.Result()
 
             assert.Equal(t, test.want.code, res.StatusCode)
@@ -163,8 +189,8 @@ func TestPostUrlHandler(t *testing.T) {
 			parsedUrl, err := url.Parse(string(resBody))
 			require.NoError(t, err)
 			createdId := strings.TrimLeft(parsedUrl.Path, "/")
-			assert.Equal(t, len(createdId), idSize)
-			savedUrl, found := testStorage.get(createdId)
+			assert.Equal(t, createdId, fixedId)
+			savedUrl, found := testStorage.Get(createdId)
 			require.True(t, found)
             assert.Equal(t, savedUrl, strings.TrimSpace(test.request))
         })
