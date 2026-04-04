@@ -1,7 +1,8 @@
-package handlers
+package handler
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,27 +16,30 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mock with storage interface
-type mockStorage struct {
+// mock with service interface
+type mockService struct {
 	data map[string]string
 	fixedID string
 }
 
-// add url to mock storage
-func (m *mockStorage) Add(url string) string {
-	m.data[m.fixedID] = url
-	return m.fixedID
+// add url into storage and return generated id
+func (service *mockService) CreateShortURL(ctx context.Context, original, scheme, host string) (string, error) {
+	service.data[service.fixedID] = original
+	return service.fixedID, nil
 }
 
-// get url from mock storage
-func (m *mockStorage) Get(id string) (string, bool) {
-	val, ok := m.data[id]
-	return val, ok
+// get url by id from storage if exists
+func (service *mockService) GetOriginalURL(ctx context.Context, short string) (string, error) {
+	val, ok := service.data[short]
+	if !ok {
+		return "", fmt.Errorf("Not found")
+	}
+	return val, nil
 }
 
 // create new router for handlers testing
-func newTestRouter(store *mockStorage) http.Handler {
-	h := NewHandler(store, "")
+func newTestRouter(service *mockService) http.Handler {
+	h := NewHandler(service)
 
 	r := chi.NewRouter()
 	r.HandleFunc("/", h.PostUrlHandler)
@@ -72,12 +76,12 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path, body string) (
 
 // test getting url by its id
 func TestIdHandler(t *testing.T) {
-	testStorage := &mockStorage{
+	testStorage := &mockService{
 		data: make(map[string]string),
 		fixedID: "test1234",
 	}
 	existingUrl := "https://example.com/"
-	existingId := testStorage.Add(existingUrl)
+	existingId, _ := testStorage.CreateShortURL(context.TODO(), existingUrl, "", "")
 
 	ts := httptest.NewServer(newTestRouter(testStorage))
 	defer ts.Close()
@@ -143,7 +147,7 @@ func TestIdHandler(t *testing.T) {
 // test adding url to storage
 func TestPostUrlHandler(t *testing.T) {
 	fixedId := "test1234"
-	testStorage := &mockStorage{
+	testStorage := &mockService{
 		data: make(map[string]string),
 		fixedID: fixedId,
 	}
@@ -215,8 +219,8 @@ func TestPostUrlHandler(t *testing.T) {
 			require.NoError(t, err)
 			createdId := strings.TrimLeft(parsedUrl.Path, "/")
 			assert.Equal(t, createdId, fixedId)
-			savedUrl, found := testStorage.Get(createdId)
-			require.True(t, found)
+			savedUrl, err := testStorage.GetOriginalURL(context.TODO(), createdId)
+			require.NoError(t, err)
             assert.Equal(t, savedUrl, strings.TrimSpace(test.request))
         })
     }

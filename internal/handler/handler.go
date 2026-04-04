@@ -1,23 +1,22 @@
-package handlers
+package handler
 
 import (
 	"io"
 	"net/http"
 	"strings"
 
-	"github.com/Starkiller2000Space-Projects/shortener/internal/storage"
+	"github.com/Starkiller2000Space-Projects/shortener/internal/service"
 	"github.com/go-chi/chi/v5"
 )
 
 // Endpoints handler
 type Handler struct {
-	store storage.StorageInterface
-	showAddr string
+	service service.EndpointService // абстракция!
 }
 
 // Get new endpoints handler
-func NewHandler(store storage.StorageInterface, showAddr string) *Handler {
-	return &Handler{store: store, showAddr: showAddr}
+func NewHandler(service service.EndpointService) *Handler {
+	return &Handler{service: service}
 }
 
 // handle passed id GET `/{id}`
@@ -28,8 +27,8 @@ func (h *Handler) IdHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	id := chi.URLParam(r, "id")
 	w.Header().Set("Content-Type", "text/plain")
-	url, ok := h.store.Get(id)
-	if !ok {
+	url, err := h.service.GetOriginalURL(r.Context(), id)
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -53,18 +52,16 @@ func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	shortID := h.store.Add(longURL)
-	var shortURL string
-	if h.showAddr != "" {
-		shortURL = h.showAddr + "/" + shortID
-	} else {
-		scheme := "http"
-		if r.Header.Get("X-Forwarded-Proto") == "https" {
-			scheme = "https"
-		}
-		shortURL = scheme + "://" + r.Host + "/" + shortID 
+	scheme := "http"
+	if r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	shortURL, err := h.service.CreateShortURL(r.Context(), longURL, scheme, r.Host)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
     w.WriteHeader(http.StatusCreated)
-	_, _ = w.Write([]byte(shortURL))
+	w.Write([]byte(shortURL))
 }
