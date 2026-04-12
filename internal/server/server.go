@@ -14,7 +14,7 @@ type Server struct {
 	http.Server
 }
 
-func NewServer(addr string, h *handler.Handler, readTimeout, writeTimeout int) *Server {
+func NewServer(addr string, h *handler.Handler, readTimeout, writeTimeout time.Duration) *Server {
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -23,15 +23,15 @@ func NewServer(addr string, h *handler.Handler, readTimeout, writeTimeout int) *
 
 	return &Server{
 		Server: http.Server{
-			Addr:    addr,
-			Handler: r,
-			ReadTimeout: time.Duration(readTimeout) * time.Second,
-			WriteTimeout: time.Duration(writeTimeout) * time.Second,
+			Addr:         addr,
+			Handler:      r,
+			ReadTimeout:  readTimeout,
+			WriteTimeout: writeTimeout,
 		},
 	}
 }
 
 func (s *Server) ListenAndServe() error {
 	log.Printf("Starting server on %s", s.Addr)
-    return s.Server.ListenAndServe()
+	return s.Server.ListenAndServe()
 }
