@@ -3,6 +3,7 @@ package config
 import (
 	"flag"
 	"log"
+	"os"
 	"time"
 
 	"github.com/caarlos0/env/v11"
@@ -23,7 +24,11 @@ func LoadConfig() *Config {
 
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		if os.IsNotExist(err) {
+			log.Println("No .env file found, using environment variables and flags")
+		} else {
+			log.Fatalf("Failed to load .env file: %v", err)
+		}
 	}
 
 	flag.StringVar(&config.RunAddr, "a", ":8080", "address and port to run server")
