@@ -17,7 +17,7 @@ import (
 
 // mock with storage interface
 type mockStorage struct {
-	data map[string]string
+	data    map[string]string
 	fixedID string
 }
 
@@ -73,7 +73,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path, body string) (
 // test getting url by its id
 func TestIdHandler(t *testing.T) {
 	testStorage := &mockStorage{
-		data: make(map[string]string),
+		data:    make(map[string]string),
 		fixedID: "test1234",
 	}
 	existingUrl := "https://example.com/"
@@ -82,53 +82,53 @@ func TestIdHandler(t *testing.T) {
 	ts := httptest.NewServer(newTestRouter(testStorage))
 	defer ts.Close()
 
-    type want struct {
-        code        int
-        response    string
-        contentType string
+	type want struct {
+		code        int
+		response    string
+		contentType string
 		location    string
-    }
-    tests := []struct {
-        name   string
+	}
+	tests := []struct {
+		name   string
 		method string
 		id     string
-        want   want
-    }{
-        {
-            name: "positive test",
-			method: http.MethodGet,
-			id: existingId,
-            want: want{
-                code:        http.StatusTemporaryRedirect,
-                response:    "",
-                contentType: "text/plain",
-				location:    existingUrl,
-            },
-        },
+		want   want
+	}{
 		{
-			name: "wrong method test",
+			name:   "positive test",
+			method: http.MethodGet,
+			id:     existingId,
+			want: want{
+				code:        http.StatusTemporaryRedirect,
+				response:    "",
+				contentType: "text/plain",
+				location:    existingUrl,
+			},
+		},
+		{
+			name:   "wrong method test",
 			method: http.MethodPost,
-			id: existingId,
+			id:     existingId,
 			want: want{
 				code:        http.StatusBadRequest,
 				response:    "",
 				contentType: "",
-				location: "",
+				location:    "",
 			},
 		},
 		{
-			name: "missing id test",
+			name:   "missing id test",
 			method: http.MethodGet,
-			id: "missingId",
+			id:     "missingId",
 			want: want{
 				code:        http.StatusBadRequest,
 				response:    "",
 				contentType: "text/plain",
-				location: "",
+				location:    "",
 			},
 		},
-    }
-    for _, test := range tests {
+	}
+	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			resp, body := testRequest(t, ts, test.method, fmt.Sprintf("/%v", test.id), "")
 			assert.Equal(t, test.want.code, resp.StatusCode)
@@ -136,75 +136,74 @@ func TestIdHandler(t *testing.T) {
 			assert.Equal(t, test.want.contentType, resp.Header.Get("Content-Type"))
 			assert.Equal(t, test.want.location, resp.Header.Get("Location"))
 		})
-    }
+	}
 }
-
 
 // test adding url to storage
 func TestPostUrlHandler(t *testing.T) {
 	fixedId := "test1234"
 	testStorage := &mockStorage{
-		data: make(map[string]string),
+		data:    make(map[string]string),
 		fixedID: fixedId,
 	}
 
 	ts := httptest.NewServer(newTestRouter(testStorage))
 	defer ts.Close()
 
-    type want struct {
-        code        int
-        contentType string
+	type want struct {
+		code        int
+		contentType string
 		success     bool
-    }
-    tests := []struct {
-        name    string
+	}
+	tests := []struct {
+		name    string
 		method  string
 		request string
-        want    want
-    }{
-        {
-            name: "positive test",
-			method: http.MethodPost,
+		want    want
+	}{
+		{
+			name:    "positive test",
+			method:  http.MethodPost,
 			request: "https://www.example0.com/",
-            want: want{
-                code:        http.StatusCreated,
-                contentType: "text/plain",
-				success: 	 true,
-            },
-        },
+			want: want{
+				code:        http.StatusCreated,
+				contentType: "text/plain",
+				success:     true,
+			},
+		},
 		{
-            name: "extra spaces test",
-			method: http.MethodPost,
+			name:    "extra spaces test",
+			method:  http.MethodPost,
 			request: "   https://www.example1.com/   ",
-            want: want{
-                code:        http.StatusCreated,
-                contentType: "text/plain",
-				success: 	 true,
-            },
-        },
+			want: want{
+				code:        http.StatusCreated,
+				contentType: "text/plain",
+				success:     true,
+			},
+		},
 		{
-			name: "wrong method test",
-			method: http.MethodGet,
+			name:    "wrong method test",
+			method:  http.MethodGet,
 			request: "https://www.example2.com/",
 			want: want{
 				code:        http.StatusBadRequest,
 				contentType: "",
-				success: 	 false,
+				success:     false,
 			},
 		},
 		{
-			name: "missing url test",
-			method: http.MethodPost,
+			name:    "missing url test",
+			method:  http.MethodPost,
 			request: "    ",
 			want: want{
 				code:        http.StatusBadRequest,
 				contentType: "",
-				success: 	 false,
+				success:     false,
 			},
 		},
-    }
-    for _, test := range tests {
-        t.Run(test.name, func(t *testing.T) {
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 			resp, body := testRequest(t, ts, test.method, "/", test.request)
 			assert.Equal(t, test.want.code, resp.StatusCode)
 			if !test.want.success {
@@ -217,7 +216,7 @@ func TestPostUrlHandler(t *testing.T) {
 			assert.Equal(t, createdId, fixedId)
 			savedUrl, found := testStorage.Get(createdId)
 			require.True(t, found)
-            assert.Equal(t, savedUrl, strings.TrimSpace(test.request))
-        })
-    }
+			assert.Equal(t, savedUrl, strings.TrimSpace(test.request))
+		})
+	}
 }

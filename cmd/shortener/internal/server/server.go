@@ -30,5 +30,5 @@ func NewServer(addr string, h *handlers.Handler) *Server {
 
 func (s *Server) ListenAndServe() error {
 	log.Printf("Starting server on %s", s.Addr)
-    return s.Server.ListenAndServe()
+	return s.Server.ListenAndServe()
 }

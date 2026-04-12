@@ -57,6 +57,6 @@ func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	shortURL := scheme + "://" + r.Host + "/" + shortID
 	w.Header().Set("Content-Type", "text/plain")
-    w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusCreated)
 	_, _ = w.Write([]byte(shortURL))
 }
