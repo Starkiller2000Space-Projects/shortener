@@ -12,7 +12,7 @@ import (
 
 // entry point
 func main() {
-    configData := config.LoadConfig()
+	configData := config.LoadConfig()
 	store := storage.NewStorage(configData.IdSize)
 	service := service.NewEndpointService(store, configData.ShowAddr)
 	handler := handler.NewHandler(service)
