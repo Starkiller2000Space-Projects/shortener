@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Starkiller2000Space-Projects/shortener/cmd/shortener/internal/storage"
+	"github.com/go-chi/chi/v5"
 )
 
 type Handler struct {
@@ -22,7 +23,7 @@ func (h *Handler) IdHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	id := r.PathValue("id")
+	id := chi.URLParam(r, "id")
 	w.Header().Set("Content-Type", "text/plain")
 	url, ok := h.store.Get(id)
 	if !ok {
@@ -56,6 +57,6 @@ func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	shortURL := scheme + "://" + r.Host + "/" + shortID
 	w.Header().Set("Content-Type", "text/plain")
-    w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusCreated)
 	_, _ = w.Write([]byte(shortURL))
 }
