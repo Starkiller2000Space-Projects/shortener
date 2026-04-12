@@ -3,20 +3,19 @@ package main
 import (
 	"log"
 
-	"github.com/Starkiller2000Space-Projects/shortener/cmd/shortener/internal/handlers"
-	"github.com/Starkiller2000Space-Projects/shortener/cmd/shortener/internal/server"
-	"github.com/Starkiller2000Space-Projects/shortener/cmd/shortener/internal/storage"
+	"github.com/Starkiller2000Space-Projects/shortener/internal/config"
+	"github.com/Starkiller2000Space-Projects/shortener/internal/handler"
+	"github.com/Starkiller2000Space-Projects/shortener/internal/server"
+	"github.com/Starkiller2000Space-Projects/shortener/internal/service"
+	"github.com/Starkiller2000Space-Projects/shortener/internal/storage"
 )
 
 // entry point
 func main() {
-	const (
-		idSize = 8
-		addr   = ":8080"
-	)
-
-	store := storage.NewStorage(idSize)
-	handler := handlers.NewHandler(store)
-	srv := server.NewServer(addr, handler)
+	configData := config.LoadConfig()
+	store := storage.NewStorage(configData.IdSize)
+	service := service.NewEndpointService(store, configData.ShowAddr)
+	handler := handler.NewHandler(service)
+	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout)
 	log.Fatal(srv.ListenAndServe())
 }
