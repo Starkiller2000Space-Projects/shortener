@@ -24,8 +24,11 @@ type mockService struct {
 
 // add url into storage and return generated id
 func (service *mockService) CreateShortURL(ctx context.Context, original, scheme, host string) (string, error) {
-	service.data[service.fixedID] = original
-	return service.fixedID, nil
+	scheme = "http"
+	shortID := service.fixedID
+	service.data[shortID] = original
+	shortURL := scheme + "://" + host + "/" + shortID
+	return shortURL, nil
 }
 
 // get url by id from storage if exists
@@ -35,14 +38,6 @@ func (service *mockService) GetOriginalURL(ctx context.Context, short string) (s
 		return "", fmt.Errorf("Not found")
 	}
 	return val, nil
-}
-
-func (service *mockService) GetScheme(ctx context.Context, headers http.Header) (string, error) {
-	scheme := "http"
-	if headers.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
-	return scheme, nil
 }
 
 // create new router for handlers testing
@@ -84,12 +79,13 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path, body string) (
 
 // test getting url by its id
 func TestIdHandler(t *testing.T) {
+	fixedID := "test1234"
 	testStorage := &mockService{
 		data:    make(map[string]string),
-		fixedID: "test1234",
+		fixedID: fixedID,
 	}
 	existingUrl := "https://example.com/"
-	existingId, _ := testStorage.CreateShortURL(context.TODO(), existingUrl, "", "")
+	testStorage.data[fixedID] = existingUrl
 
 	ts := httptest.NewServer(newTestRouter(testStorage))
 	defer ts.Close()
@@ -109,7 +105,7 @@ func TestIdHandler(t *testing.T) {
 		{
 			name:   "positive test",
 			method: http.MethodGet,
-			id:     existingId,
+			id:     fixedID,
 			want: want{
 				code:        http.StatusTemporaryRedirect,
 				response:    "",
@@ -120,7 +116,7 @@ func TestIdHandler(t *testing.T) {
 		{
 			name:   "wrong method test",
 			method: http.MethodPost,
-			id:     existingId,
+			id:     fixedID,
 			want: want{
 				code:        http.StatusBadRequest,
 				response:    "",
@@ -166,6 +162,7 @@ func TestPostUrlHandler(t *testing.T) {
 		code        int
 		contentType string
 		success     bool
+		body        string
 	}
 	tests := []struct {
 		name    string
@@ -181,6 +178,7 @@ func TestPostUrlHandler(t *testing.T) {
 				code:        http.StatusCreated,
 				contentType: "text/plain",
 				success:     true,
+				body:        fixedId,
 			},
 		},
 		{
@@ -191,6 +189,7 @@ func TestPostUrlHandler(t *testing.T) {
 				code:        http.StatusBadRequest,
 				contentType: "",
 				success:     false,
+				body:        "",
 			},
 		},
 	}

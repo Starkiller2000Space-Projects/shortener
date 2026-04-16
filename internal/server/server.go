@@ -22,6 +22,10 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 	r.HandleFunc("/{id}", h.IdHandler)
 	r.HandleFunc("/", h.PostUrlHandler)
 
+	apiRouter := chi.NewRouter()
+	apiRouter.Post("/shorten", h.ShortenJSONHandler)
+	r.Mount("/api", apiRouter)
+
 	return &Server{
 		Server: http.Server{
 			Addr:         addr,

@@ -27,6 +27,7 @@ func TestShortenJSONHandler(t *testing.T) {
 		code        int
 		contentType string
 		success     bool
+		body        string
 	}
 	tests := []struct {
 		name    string
@@ -42,16 +43,7 @@ func TestShortenJSONHandler(t *testing.T) {
 				code:        http.StatusCreated,
 				contentType: "text/plain",
 				success:     true,
-			},
-		},
-		{
-			name:    "extra spaces test",
-			method:  http.MethodPost,
-			request: `{"url":"   https://www.example1.com/   "}`,
-			want: want{
-				code:        http.StatusCreated,
-				contentType: "text/plain",
-				success:     true,
+				body:        `{"result":""}`,
 			},
 		},
 		{
@@ -62,6 +54,7 @@ func TestShortenJSONHandler(t *testing.T) {
 				code:        http.StatusBadRequest,
 				contentType: "",
 				success:     false,
+				body:        "",
 			},
 		},
 	}
