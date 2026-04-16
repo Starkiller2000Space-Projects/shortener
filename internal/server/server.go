@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Starkiller2000Space-Projects/shortener/internal/handler"
+	"github.com/Starkiller2000Space-Projects/shortener/internal/handlers"
 	"github.com/Starkiller2000Space-Projects/shortener/internal/logger"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -15,7 +15,7 @@ type Server struct {
 	http.Server
 }
 
-func NewServer(addr string, h *handler.Handler, readTimeout, writeTimeout time.Duration) *Server {
+func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.Duration) *Server {
 	r := chi.NewRouter()
 	r.Use(logger.RequestsLogger)
 	r.Use(middleware.Recoverer)

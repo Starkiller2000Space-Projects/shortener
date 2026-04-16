@@ -4,7 +4,7 @@ import (
 	"log"
 
 	"github.com/Starkiller2000Space-Projects/shortener/internal/config"
-	"github.com/Starkiller2000Space-Projects/shortener/internal/handler"
+	"github.com/Starkiller2000Space-Projects/shortener/internal/handlers"
 	"github.com/Starkiller2000Space-Projects/shortener/internal/logger"
 	"github.com/Starkiller2000Space-Projects/shortener/internal/server"
 	"github.com/Starkiller2000Space-Projects/shortener/internal/service"
@@ -21,7 +21,7 @@ func main() {
 	}
 	store := storage.NewStorage(configData.IdSize)
 	service := service.NewEndpointService(store, configData.ShowAddr)
-	handler := handler.NewHandler(service)
+	handler := handlers.NewHandler(service)
 	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout)
 	err = srv.ListenAndServe()
 	if err != nil {
