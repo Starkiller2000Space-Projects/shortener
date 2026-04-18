@@ -38,7 +38,7 @@ func LoadConfig() *Config {
 	flag.IntVar(&config.IdSize, "i", 8, "address and port to show for short urls")
 	flag.StringVar(&config.LoggerLevel, "l", "INFO", "logger level")
 	var readSec, writeSec int
-	flag.StringVar(&config.FileStoragePath, "f", "./data/storage.json", "file path to save shortened urls to")
+	flag.StringVar(&config.FileStoragePath, "f", "./storage.json", "file path to save shortened urls to")
 	// read flags to temp vars
 	flag.IntVar(&readSec, "r", 30, "server read timeout in seconds")
 	flag.IntVar(&writeSec, "w", 30, "server write timeout in seconds")
