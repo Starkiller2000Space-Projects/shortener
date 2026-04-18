@@ -19,7 +19,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to initialize logger: %v", err)
 	}
-	store := storage.NewStorage(configData.IdSize)
+	store, err := storage.NewStorage(configData.FileStoragePath, configData.IdSize)
+	if err != nil {
+		log.Fatalf("Unable to create storage: %v", err)
+	}
 	service := service.NewEndpointService(store, configData.ShowAddr)
 	handler := handlers.NewHandler(service)
 	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout)
