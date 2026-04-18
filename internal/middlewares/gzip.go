@@ -11,14 +11,14 @@ import (
 )
 
 type compressWriter struct {
-	w  http.ResponseWriter
-	zw *gzip.Writer
+	w          http.ResponseWriter
+	zw         *gzip.Writer
+	compressed bool
 }
 
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	return &compressWriter{
-		w:  w,
-		zw: gzip.NewWriter(w),
+		w: w,
 	}
 }
 
@@ -27,19 +27,27 @@ func (c *compressWriter) Header() http.Header {
 }
 
 func (c *compressWriter) Write(p []byte) (int, error) {
-	return c.zw.Write(p)
+	if c.compressed {
+		return c.zw.Write(p)
+	}
+	return c.w.Write(p)
 }
 
 func (c *compressWriter) WriteHeader(statusCode int) {
 	mediaType, _, err := mime.ParseMediaType(c.w.Header().Get("Content-Type"))
 	if err == nil && (mediaType == "application/json" || mediaType == "text/html") {
 		c.w.Header().Set("Content-Encoding", "gzip")
+		c.compressed = true
+		c.zw = gzip.NewWriter(c.w)
 	}
 	c.w.WriteHeader(statusCode)
 }
 
 func (c *compressWriter) Close() error {
-	return c.zw.Close()
+	if c.compressed && c.zw != nil {
+		return c.zw.Close()
+	}
+	return nil
 }
 
 type compressReader struct {
