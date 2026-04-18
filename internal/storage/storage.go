@@ -58,8 +58,6 @@ func (fs *fileStorage) load() error {
 }
 
 func (fs *fileStorage) save() error {
-	fs.mu.RLock()
-	defer fs.mu.RUnlock()
 	records := make([]fileRecord, 0, len(fs.data))
 	for short, original := range fs.data {
 		records = append(records, fileRecord{ShortURL: short, OriginalURL: original})
@@ -69,7 +67,9 @@ func (fs *fileStorage) save() error {
 		return err
 	}
 	defer f.Close()
-	return json.NewEncoder(f).Encode(records)
+	encoder := json.NewEncoder(f)
+	encoder.SetIndent("", "    ")
+	return encoder.Encode(records)
 }
 
 // add url into storage and return generated id

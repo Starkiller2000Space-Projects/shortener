@@ -24,3 +24,6 @@ vendor/
 
 # environment
 .env
+
+# data
+data/*
