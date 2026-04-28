@@ -6,6 +6,7 @@ import (
 
 	"github.com/Starkiller2000Space-Projects/shortener/internal/handlers"
 	"github.com/Starkiller2000Space-Projects/shortener/internal/logger"
+	"github.com/Starkiller2000Space-Projects/shortener/internal/middlewares"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"go.uber.org/zap"
@@ -17,6 +18,7 @@ type Server struct {
 
 func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.Duration) *Server {
 	r := chi.NewRouter()
+	r.Use(middlewares.GzipMiddleware)
 	r.Use(logger.RequestsLogger)
 	r.Use(middleware.Recoverer)
 	r.HandleFunc("/{id}", h.IdHandler)
