@@ -1,11 +1,12 @@
 package handlers
 
 import (
+	"errors"
 	"io"
 	"net/http"
 
-	"github.com/Starkiller2000Space-Projects/shortener/internal/service"
 	"github.com/go-chi/chi/v5"
+	"github.com/max-marek-projects/shortener/internal/service"
 )
 
 // Endpoints handler
@@ -21,7 +22,7 @@ func NewHandler(service service.EndpointService) *Handler {
 // handle passed id GET `/{id}`
 func (h *Handler) IdHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 	id := chi.URLParam(r, "id")
@@ -38,7 +39,7 @@ func (h *Handler) IdHandler(w http.ResponseWriter, r *http.Request) {
 // handle adding url to storage POST `/`
 func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 	body, err := io.ReadAll(r.Body)
@@ -48,7 +49,11 @@ func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	shortURL, err := h.service.CreateShortURL(r.Context(), string(body), r.Header.Get("X-Forwarded-Proto"), r.Host)
 	if err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		if errors.Is(err, service.ErrorEmptyUrl) {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")

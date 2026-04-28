@@ -1,14 +1,21 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"github.com/Starkiller2000Space-Projects/shortener/internal/config"
-	"github.com/Starkiller2000Space-Projects/shortener/internal/handlers"
-	"github.com/Starkiller2000Space-Projects/shortener/internal/logger"
-	"github.com/Starkiller2000Space-Projects/shortener/internal/server"
-	"github.com/Starkiller2000Space-Projects/shortener/internal/service"
-	"github.com/Starkiller2000Space-Projects/shortener/internal/storage"
+	"github.com/max-marek-projects/shortener/internal/config"
+	"github.com/max-marek-projects/shortener/internal/handlers"
+	"github.com/max-marek-projects/shortener/internal/logger"
+	"github.com/max-marek-projects/shortener/internal/server"
+	"github.com/max-marek-projects/shortener/internal/service"
+	"github.com/max-marek-projects/shortener/internal/storage"
 	"go.uber.org/zap"
 )
 
@@ -19,12 +26,42 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to initialize logger: %v", err)
 	}
-	store := storage.NewStorage(configData.IdSize)
+	store, err := storage.NewStorage(configData.FileStoragePath, configData.IdSize)
+	if err != nil {
+		log.Fatalf("Unable to create storage: %v", err)
+	}
 	service := service.NewEndpointService(store, configData.ShowAddr)
 	handler := handlers.NewHandler(service)
 	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout)
-	err = srv.ListenAndServe()
-	if err != nil {
-		logger.Log.Fatal("Server shut down", zap.Error(err))
+
+	// create separate goroutine
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- srv.ListenAndServe()
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(stop)
+
+	select {
+	case sig := <-stop:
+		logger.Log.Info("Shutdown signal received",
+			zap.String("signal", sig.String()),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := srv.Shutdown(ctx); err != nil {
+			logger.Log.Error("Graceful shutdown failed", zap.Error(err))
+		} else {
+			logger.Log.Info("Server stopped gracefully")
+		}
+
+	case err := <-serverErr:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Log.Fatal("Server stopped with error", zap.Error(err))
+		}
 	}
 }

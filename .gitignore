@@ -24,3 +24,7 @@ vendor/
 
 # environment
 .env
+
+# data
+*.json
+bin/*

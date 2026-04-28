@@ -11,12 +11,13 @@ import (
 )
 
 type Config struct {
-	RunAddr      string        `env:"SERVER_ADDRESS"` // address and port to run server
-	ShowAddr     string        `env:"BASE_URL"`       // address and port to show for short urls
-	IdSize       int           `env:"ID_SIZE"`        // short link id length
-	ReadTimeout  time.Duration `env:"READ_TIMEOUT"`   // server read timeout in seconds
-	WriteTimeout time.Duration `env:"WRITE_TIMEOUT"`  // server write timeout in seconds
-	LoggerLevel  string        `env:"LOGGER_LEVEL"`   // logger level DEBUG / INFO / WARNING / ERROR / FATAL
+	RunAddr         string        `env:"SERVER_ADDRESS"`    // address and port to run server
+	ShowAddr        string        `env:"BASE_URL"`          // address and port to show for short urls
+	IdSize          int           `env:"ID_SIZE"`           // short link id length
+	ReadTimeout     time.Duration `env:"READ_TIMEOUT"`      // server read timeout in seconds
+	WriteTimeout    time.Duration `env:"WRITE_TIMEOUT"`     // server write timeout in seconds
+	LoggerLevel     string        `env:"LOGGER_LEVEL"`      // logger level DEBUG / INFO / WARNING / ERROR / FATAL
+	FileStoragePath string        `env:"FILE_STORAGE_PATH"` // file path to save shortened urls to
 }
 
 // parse all flags from command line
@@ -31,16 +32,19 @@ func LoadConfig() *Config {
 			log.Fatalf("Failed to load .env file: %v", err)
 		}
 	}
-
+	// read flags directly to config
 	flag.StringVar(&config.RunAddr, "a", ":8080", "address and port to run server")
 	flag.StringVar(&config.ShowAddr, "b", "", "address and port to show for short urls")
 	flag.IntVar(&config.IdSize, "i", 8, "address and port to show for short urls")
 	flag.StringVar(&config.LoggerLevel, "l", "INFO", "logger level")
 	var readSec, writeSec int
+	flag.StringVar(&config.FileStoragePath, "f", "./storage.json", "file path to save shortened urls to")
+	// read flags to temp vars
 	flag.IntVar(&readSec, "r", 30, "server read timeout in seconds")
 	flag.IntVar(&writeSec, "w", 30, "server write timeout in seconds")
+	// parse flags
 	flag.Parse()
-	// parse time duration params
+	// parse temp vars to config struct
 	config.ReadTimeout = time.Duration(readSec) * time.Second
 	config.WriteTimeout = time.Duration(writeSec) * time.Second
 	if err := env.Parse(&config); err != nil {

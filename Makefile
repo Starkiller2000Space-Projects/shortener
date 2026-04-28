@@ -4,8 +4,8 @@ build:
 test:
 	go test -cover ./...
 
-run_client:
+run-client:
 	go run ./cmd/client/main.go
 
-run_binary:
+run-binary:
 	./bin/shortener
