@@ -1,9 +1,8 @@
-package handler
+package handlers
 
 import (
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/Starkiller2000Space-Projects/shortener/internal/service"
 	"github.com/go-chi/chi/v5"
@@ -47,21 +46,12 @@ func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	longURL := strings.TrimSpace(string(body))
-	if longURL == "" {
-		http.Error(w, "bad request", http.StatusBadRequest)
-		return
-	}
-	scheme := "http"
-	if r.Header.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
-	shortURL, err := h.service.CreateShortURL(r.Context(), longURL, scheme, r.Host)
+	shortURL, err := h.service.CreateShortURL(r.Context(), string(body), r.Header.Get("X-Forwarded-Proto"), r.Host)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "Bad request", http.StatusBadRequest)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
-    w.WriteHeader(http.StatusCreated)
+	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(shortURL))
 }
