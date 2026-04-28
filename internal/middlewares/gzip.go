@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/Starkiller2000Space-Projects/shortener/internal/utils"
+	"github.com/max-marek-projects/shortener/internal/utils"
 )
 
 type compressWriter struct {

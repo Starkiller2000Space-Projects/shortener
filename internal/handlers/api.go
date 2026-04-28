@@ -4,14 +4,14 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Starkiller2000Space-Projects/shortener/internal/logger"
-	"github.com/Starkiller2000Space-Projects/shortener/internal/models"
+	"github.com/max-marek-projects/shortener/internal/logger"
+	"github.com/max-marek-projects/shortener/internal/models"
 	"go.uber.org/zap"
 )
 
 func (h *Handler) ShortenJSONHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
 

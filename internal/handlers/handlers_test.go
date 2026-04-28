@@ -118,7 +118,7 @@ func TestIdHandler(t *testing.T) {
 			method: http.MethodPost,
 			id:     fixedID,
 			want: want{
-				code:        http.StatusBadRequest,
+				code:        http.StatusMethodNotAllowed,
 				response:    "",
 				contentType: "",
 				location:    "",
@@ -186,7 +186,7 @@ func TestPostUrlHandler(t *testing.T) {
 			method:  http.MethodGet,
 			request: "https://www.example2.com/",
 			want: want{
-				code:        http.StatusBadRequest,
+				code:        http.StatusMethodNotAllowed,
 				contentType: "",
 				success:     false,
 				body:        "",

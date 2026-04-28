@@ -4,11 +4,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Starkiller2000Space-Projects/shortener/internal/handlers"
-	"github.com/Starkiller2000Space-Projects/shortener/internal/logger"
-	"github.com/Starkiller2000Space-Projects/shortener/internal/middlewares"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/max-marek-projects/shortener/internal/handlers"
+	"github.com/max-marek-projects/shortener/internal/logger"
+	"github.com/max-marek-projects/shortener/internal/middlewares"
 	"go.uber.org/zap"
 )
 

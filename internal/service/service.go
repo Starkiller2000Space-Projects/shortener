@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/Starkiller2000Space-Projects/shortener/internal/storage"
+	"github.com/max-marek-projects/shortener/internal/storage"
 )
 
 type EndpointService interface {

@@ -1,4 +1,4 @@
-module github.com/Starkiller2000Space-Projects/shortener
+module github.com/max-marek-projects/shortener
 
 go 1.25.0
 

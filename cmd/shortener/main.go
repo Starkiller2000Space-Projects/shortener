@@ -3,12 +3,12 @@ package main
 import (
 	"log"
 
-	"github.com/Starkiller2000Space-Projects/shortener/internal/config"
-	"github.com/Starkiller2000Space-Projects/shortener/internal/handlers"
-	"github.com/Starkiller2000Space-Projects/shortener/internal/logger"
-	"github.com/Starkiller2000Space-Projects/shortener/internal/server"
-	"github.com/Starkiller2000Space-Projects/shortener/internal/service"
-	"github.com/Starkiller2000Space-Projects/shortener/internal/storage"
+	"github.com/max-marek-projects/shortener/internal/config"
+	"github.com/max-marek-projects/shortener/internal/handlers"
+	"github.com/max-marek-projects/shortener/internal/logger"
+	"github.com/max-marek-projects/shortener/internal/server"
+	"github.com/max-marek-projects/shortener/internal/service"
+	"github.com/max-marek-projects/shortener/internal/storage"
 	"go.uber.org/zap"
 )
 

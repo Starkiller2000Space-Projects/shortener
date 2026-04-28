@@ -51,7 +51,7 @@ func TestShortenJSONHandler(t *testing.T) {
 			method:  http.MethodGet,
 			request: `{"url":"https://www.example2.com/"}`,
 			want: want{
-				code:        http.StatusBadRequest,
+				code:        http.StatusMethodNotAllowed,
 				contentType: "",
 				success:     false,
 				body:        "",
