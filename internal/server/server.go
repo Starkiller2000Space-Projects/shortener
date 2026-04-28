@@ -1,13 +1,14 @@
 package server
 
 import (
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/Starkiller2000Space-Projects/shortener/internal/handler"
+	"github.com/Starkiller2000Space-Projects/shortener/internal/logger"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
 )
 
 type Server struct {
@@ -16,7 +17,7 @@ type Server struct {
 
 func NewServer(addr string, h *handler.Handler, readTimeout, writeTimeout time.Duration) *Server {
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
+	r.Use(logger.RequestsLogger)
 	r.Use(middleware.Recoverer)
 	r.HandleFunc("/{id}", h.IdHandler)
 	r.HandleFunc("/", h.PostUrlHandler)
@@ -32,6 +33,6 @@ func NewServer(addr string, h *handler.Handler, readTimeout, writeTimeout time.D
 }
 
 func (s *Server) ListenAndServe() error {
-	log.Printf("Starting server on %s", s.Addr)
+	logger.Log.Info("Starting server", zap.String("address", s.Addr))
 	return s.Server.ListenAndServe()
 }

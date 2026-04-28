@@ -16,6 +16,7 @@ type Config struct {
 	IdSize       int           `env:"ID_SIZE"`        // short link id length
 	ReadTimeout  time.Duration `env:"READ_TIMEOUT"`   // server read timeout in seconds
 	WriteTimeout time.Duration `env:"WRITE_TIMEOUT"`  // server write timeout in seconds
+	LoggerLevel  string        `env:"LOGGER_LEVEL"`   // logger level DEBUG / INFO / WARNING / ERROR / FATAL
 }
 
 // parse all flags from command line
@@ -34,6 +35,7 @@ func LoadConfig() *Config {
 	flag.StringVar(&config.RunAddr, "a", ":8080", "address and port to run server")
 	flag.StringVar(&config.ShowAddr, "b", "", "address and port to show for short urls")
 	flag.IntVar(&config.IdSize, "i", 8, "address and port to show for short urls")
+	flag.StringVar(&config.LoggerLevel, "l", "INFO", "logger level")
 	var readSec, writeSec int
 	flag.IntVar(&readSec, "r", 30, "server read timeout in seconds")
 	flag.IntVar(&writeSec, "w", 30, "server write timeout in seconds")
