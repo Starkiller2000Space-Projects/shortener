@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"io"
 	"net/http"
 
@@ -48,7 +49,11 @@ func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	shortURL, err := h.service.CreateShortURL(r.Context(), string(body), r.Header.Get("X-Forwarded-Proto"), r.Host)
 	if err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		if errors.Is(err, service.ErrorEmptyUrl) {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")

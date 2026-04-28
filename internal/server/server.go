@@ -19,7 +19,7 @@ type Server struct {
 func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.Duration) *Server {
 	r := chi.NewRouter()
 	r.Use(middlewares.GzipMiddleware)
-	r.Use(logger.RequestsLogger)
+	r.Use(middlewares.RequestsLogger)
 	r.Use(middleware.Recoverer)
 	r.HandleFunc("/{id}", h.IdHandler)
 	r.HandleFunc("/", h.PostUrlHandler)

@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/max-marek-projects/shortener/internal/models"
+	"github.com/max-marek-projects/shortener/internal/service"
 	"go.uber.org/zap"
 )
 
@@ -23,7 +25,11 @@ func (h *Handler) ShortenJSONHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	shortURL, err := h.service.CreateShortURL(r.Context(), requestData.URL, r.Header.Get("X-Forwarded-Proto"), r.Host)
 	if err != nil {
-		http.Error(w, "Bad request", http.StatusBadRequest)
+		if errors.Is(err, service.ErrorEmptyUrl) {
+			http.Error(w, "Bad request", http.StatusBadRequest)
+			return
+		}
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 	responseData := models.ShortenResponse{Result: shortURL}

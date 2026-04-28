@@ -1,7 +1,14 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/max-marek-projects/shortener/internal/config"
 	"github.com/max-marek-projects/shortener/internal/handlers"
@@ -26,8 +33,35 @@ func main() {
 	service := service.NewEndpointService(store, configData.ShowAddr)
 	handler := handlers.NewHandler(service)
 	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout)
-	err = srv.ListenAndServe()
-	if err != nil {
-		logger.Log.Fatal("Server shut down", zap.Error(err))
+
+	// create separate goroutine
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- srv.ListenAndServe()
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(stop)
+
+	select {
+	case sig := <-stop:
+		logger.Log.Info("Shutdown signal received",
+			zap.String("signal", sig.String()),
+		)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := srv.Shutdown(ctx); err != nil {
+			logger.Log.Error("Graceful shutdown failed", zap.Error(err))
+		} else {
+			logger.Log.Info("Server stopped gracefully")
+		}
+
+	case err := <-serverErr:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Log.Fatal("Server stopped with error", zap.Error(err))
+		}
 	}
 }

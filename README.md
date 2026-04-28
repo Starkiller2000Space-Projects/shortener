@@ -1,44 +1,100 @@
-# go-musthave-shortener-tpl
+# URL Shortener Service
 
-Шаблон репозитория для трека «Сервис сокращения URL».
+![Go Version](https://img.shields.io/badge/go-1.22%2B-blue)  
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-## Начало работы
+URL shortening service (similar to [bitly](https://bitly.com/)) implemented in Go.  
+Supports creating short links, redirecting by short ID, and storing URLs in file storage.
 
-1. Склонируйте репозиторий в любую подходящую директорию на вашем компьютере.
-2. В корне репозитория выполните команду `go mod init <name>` (где `<name>` — адрес вашего репозитория на GitHub без префикса `https://`) для создания модуля.
+## Requirements
 
-## Обновление шаблона
+- Go 1.22+
+- make
 
-Чтобы иметь возможность получать обновления автотестов и других частей шаблона, выполните команду:
+## Features
 
+- Create short URLs
+- Redirect by short ID
+- File-based storage
+- Configurable server address
+- Structured logging
+- Graceful shutdown
+
+## Running the Project
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/max-marek-projects/shortener.git
+cd shortener
 ```
-git remote add -m v2 template https://github.com/Yandex-Practicum/go-musthave-shortener-tpl.git
+
+### 2. Build the project
+
+```bash
+make build
 ```
 
-Для обновления кода автотестов выполните команду:
+### 3. Run the project
 
+```bash
+make run-binary
 ```
-git fetch template && git checkout template/v2 .github
+
+After startup:
+
+- API: `http://localhost:8080`
+
+## API Usage
+
+### Create short URL
+
+```bash
+curl -X POST http://localhost:8080/api/shorten \
+-H "Content-Type: application/json" \
+-d '{"url":"https://example.com"}'
 ```
 
-Затем добавьте полученные изменения в свой репозиторий.
+Response:
 
-## Запуск автотестов
+```json
+{
+  "result": "http://localhost:8080/abc123"
+}
+```
 
-Для успешного запуска автотестов называйте ветки `iter<number>`, где `<number>` — порядковый номер инкремента. Например, в ветке с названием `iter4` запустятся автотесты для инкрементов с первого по четвёртый.
+### Redirect
 
-При мёрже ветки с инкрементом в основную ветку `main` будут запускаться все автотесты.
+```bash
+curl -i http://localhost:8080/abc123
+```
 
-Подробнее про локальный и автоматический запуск читайте в [README автотестов](https://github.com/Yandex-Practicum/go-autotests).
+## Testing
 
-## Структура проекта
+```bash
+make test
+```
 
-Приведённая в этом репозитории структура проекта является рекомендуемой, но не обязательной.
+## Linting
 
-Это лишь пример организации кода, который поможет вам в реализации сервиса.
+```bash
+make lint
+```
 
-При необходимости можно вносить изменения в структуру проекта, использовать любые библиотеки и предпочитаемые структурные паттерны организации кода приложения, например:
-- **DDD** (Domain-Driven Design)
-- **Clean Architecture**
-- **Hexagonal Architecture**
-- **Layered Architecture**
+## Technologies
+
+| Component | Technology |
+|-----------|------------|
+| Language  | Go         |
+| HTTP      | net/http   |
+| Logging   | Zap        |
+| Storage   | File       |
+| Build     | Make       |
+
+## License
+
+[MIT License](./LICENSE)
+
+## Author
+
+- :white_check_mark: [max-marek](https://gitlab.com/max-marek)

@@ -27,3 +27,4 @@ vendor/
 
 # data
 *.json
+bin/*
