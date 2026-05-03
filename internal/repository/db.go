@@ -72,7 +72,7 @@ func (dbs *dbStorage) Get(ctx context.Context, id string) (string, error) {
 	dbs.mu.RLock()         // lock storage for reading
 	defer dbs.mu.RUnlock() // unlock storage for reading after function completion
 	var val string
-	err := dbs.storage.QueryRowContext(ctx, "SELECT FROM urls urls(original_url) WHERE id = $1", id).Scan(&val)
+	err := dbs.storage.QueryRowContext(ctx, "SELECT original_url FROM urls WHERE id = $1", id).Scan(&val)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrNotFound
