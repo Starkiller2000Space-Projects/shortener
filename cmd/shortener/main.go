@@ -13,9 +13,9 @@ import (
 	"github.com/max-marek-projects/shortener/internal/config"
 	"github.com/max-marek-projects/shortener/internal/handlers"
 	"github.com/max-marek-projects/shortener/internal/logger"
+	"github.com/max-marek-projects/shortener/internal/repository"
 	"github.com/max-marek-projects/shortener/internal/server"
 	"github.com/max-marek-projects/shortener/internal/service"
-	"github.com/max-marek-projects/shortener/internal/storage"
 	"go.uber.org/zap"
 )
 
@@ -26,7 +26,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to initialize logger: %v", err)
 	}
-	store, err := storage.NewStorage(configData.FileStoragePath, configData.IdSize)
+	store, err := repository.DetermineStorage(configData)
 	if err != nil {
 		log.Fatalf("Unable to create storage: %v", err)
 	}

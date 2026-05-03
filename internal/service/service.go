@@ -4,16 +4,17 @@ import (
 	"context"
 	"strings"
 
-	"github.com/max-marek-projects/shortener/internal/storage"
+	"github.com/max-marek-projects/shortener/internal/repository"
 )
 
 type EndpointService interface {
 	CreateShortURL(ctx context.Context, original, scheme, host string) (string, error)
 	GetOriginalURL(ctx context.Context, short string) (string, error)
+	Ping(ctx context.Context) error
 }
 
 type endpointService struct {
-	storage  storage.StorageInterface
+	storage  repository.StorageInterface
 	showAddr string
 }
 
@@ -43,12 +44,16 @@ func (service *endpointService) CreateShortURL(ctx context.Context, original, sc
 func (service *endpointService) GetOriginalURL(ctx context.Context, short string) (string, error) {
 	original, err := service.storage.Get(ctx, short)
 	if err != nil {
-		return "", err // кастомная ошибка
+		return "", err
 	}
 	return original, nil
 
 }
 
-func NewEndpointService(storage storage.StorageInterface, showAddr string) EndpointService {
+func (service *endpointService) Ping(ctx context.Context) error {
+	return service.storage.Ping(ctx)
+}
+
+func NewEndpointService(storage repository.StorageInterface, showAddr string) EndpointService {
 	return &endpointService{storage: storage, showAddr: showAddr}
 }
