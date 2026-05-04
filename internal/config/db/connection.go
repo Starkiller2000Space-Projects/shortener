@@ -8,7 +8,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-func Connect(cfg DBConf) (*sql.DB, error) {
+func Connect(cfg *DBConf) (*sql.DB, error) {
 	db, err := sql.Open("pgx", cfg.URL)
 	if err != nil {
 		return nil, err
