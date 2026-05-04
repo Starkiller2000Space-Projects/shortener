@@ -11,7 +11,7 @@ import (
 
 // Endpoints handler
 type Handler struct {
-	service service.EndpointService // абстракция!
+	service service.EndpointService
 }
 
 // Get new endpoints handler
@@ -21,10 +21,6 @@ func NewHandler(service service.EndpointService) *Handler {
 
 // handle passed id GET `/{id}`
 func (h *Handler) IdHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 	id := chi.URLParam(r, "id")
 	w.Header().Set("Content-Type", "text/plain")
 	url, err := h.service.GetOriginalURL(r.Context(), id)
@@ -38,10 +34,6 @@ func (h *Handler) IdHandler(w http.ResponseWriter, r *http.Request) {
 
 // handle adding url to storage POST `/`
 func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 	body, err := io.ReadAll(r.Body)
 	if err != nil || len(body) == 0 {
 		w.WriteHeader(http.StatusBadRequest)

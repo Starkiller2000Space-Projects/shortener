@@ -30,7 +30,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to create storage: %v", err)
 	}
-	service := service.NewEndpointService(store, configData.ShowAddr)
+	service := service.NewEndpointService(store, configData.ShowAddr, configData.IdSize)
 	handler := handlers.NewHandler(service)
 	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout)
 
