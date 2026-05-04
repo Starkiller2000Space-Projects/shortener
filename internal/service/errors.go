@@ -1,6 +1,9 @@
 package service
 
-import "errors"
+import (
+	"errors"
+)
 
 var ErrorEmptyUrl = errors.New("Url is empty or contains only whitespace characters")
 var ErrorEmptyBatch = errors.New("Empty batch received")
+var ErrorDuplicate = errors.New("url already exists")

@@ -4,8 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 
 	"github.com/golang-migrate/migrate/v4"
+	"github.com/jackc/pgerrcode"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/max-marek-projects/shortener/internal/config/db"
 	"github.com/max-marek-projects/shortener/internal/logger"
 	"go.uber.org/zap"
@@ -62,6 +65,15 @@ func (dbs *dbStorage) Add(ctx context.Context, id, url string) error {
 	}
 	_, err := dbs.storage.ExecContext(ctx, "INSERT INTO urls(id, original_url) VALUES($1, $2)", id, url)
 	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
+			var existingID string
+			queryErr := dbs.storage.QueryRowContext(ctx, "SELECT id FROM urls WHERE original_url = $1", url).Scan(&existingID)
+			if queryErr != nil {
+				return fmt.Errorf("failed to fetch existing url: %w", queryErr)
+			}
+			return &ErrAlreadyExists{ExistingID: existingID}
+		}
 		return err
 	}
 	return nil

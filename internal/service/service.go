@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/max-marek-projects/shortener/internal/logger"
@@ -57,7 +58,12 @@ func (service *endpointService) CreateShortURL(ctx context.Context, original, sc
 	id := utils.GenerateId(service.idSize)
 	err := service.storage.Add(ctx, id, original)
 	if err != nil {
-		logger.Log.Error("Url is Empty", zap.String("message", err.Error()))
+		var existsErr *repository.ErrAlreadyExists
+		if errors.As(err, &existsErr) {
+			shortURL := service.getUrlFromId(existsErr.ExistingID, scheme, host)
+			return shortURL, ErrorDuplicate
+		}
+		logger.Log.Error("Url addition error", zap.String("message", err.Error()))
 		return "", err
 	}
 	shortURL := service.getUrlFromId(id, scheme, host)
