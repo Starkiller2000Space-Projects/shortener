@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockStorage реализует storage.StorageInterface для тестов
+// mockStorage implements storage.StorageInterface for tests
 type mockStorage struct {
 	data map[string]string
 }
