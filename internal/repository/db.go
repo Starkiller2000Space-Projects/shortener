@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/jackc/pgerrcode"
@@ -26,7 +27,7 @@ func NewDBStorage(dbURL string) (*dbStorage, error) {
 	config := db.NewDbConf(dbURL)
 	storage, err := db.Connect(config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to create DB storage: %w", err)
 	}
 	dbs := &dbStorage{
 		storage: storage,
@@ -34,7 +35,7 @@ func NewDBStorage(dbURL string) (*dbStorage, error) {
 	}
 	err = dbs.runMigrations()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to create DB storage: %w", err)
 	}
 	return dbs, nil
 }
@@ -47,11 +48,11 @@ func (dbs *dbStorage) runMigrations() error {
 		dbs.config.URL,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to run migrations: %w", err)
 	}
 	defer m.Close()
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return err
+		return fmt.Errorf("Failed to run migrations: %w", err)
 	}
 	return nil
 }
@@ -74,7 +75,7 @@ func (dbs *dbStorage) Add(ctx context.Context, id, url string) error {
 			}
 			return &ErrAlreadyExists{ExistingID: existingID}
 		}
-		return err
+		return fmt.Errorf("Failed to add url to storage: %w", err)
 	}
 	return nil
 }
@@ -92,7 +93,7 @@ func (dbs *dbStorage) Get(ctx context.Context, id string) (string, error) {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrNotFound
 		}
-		return "", err
+		return "", fmt.Errorf("Failed to get url from storage by id: %w", err)
 	}
 	return val, nil
 }
@@ -104,24 +105,30 @@ func (dbs *dbStorage) Ping(ctx context.Context) error {
 
 // add data as batch
 func (dbs *dbStorage) AddBatch(ctx context.Context, items []Row) error {
+	if len(items) == 0 {
+		return nil
+	}
 	tx, err := dbs.storage.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to add data as batch: %w", err)
 	}
 	defer func() {
 		_ = tx.Rollback()
 	}()
+	var b strings.Builder
+	b.WriteString("INSERT INTO urls(id, original_url) VALUES ")
 
-	stmt, err := tx.PrepareContext(ctx, `INSERT INTO urls(id, original_url) VALUES($1, $2)`)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	for _, item := range items {
-		if _, err := stmt.ExecContext(ctx, item.ID, item.OriginalURL); err != nil {
-			return err
+	args := make([]any, 0, len(items)*2)
+	for i, item := range items {
+		if i > 0 {
+			b.WriteString(", ")
 		}
+		b.WriteString(fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2))
+		args = append(args, item.ID, item.OriginalURL)
+	}
+
+	if _, err := tx.ExecContext(ctx, b.String(), args...); err != nil {
+		return fmt.Errorf("failed to add data as batch: %w", err)
 	}
 
 	return tx.Commit()

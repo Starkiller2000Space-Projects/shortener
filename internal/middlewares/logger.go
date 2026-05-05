@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -52,6 +53,9 @@ type (
 func (r *loggingResponseWriter) Write(b []byte) (int, error) {
 	size, err := r.ResponseWriter.Write(b)
 	r.responseData.size += size
+	if err != nil {
+		return size, fmt.Errorf("Failed to write response: %w", err)
+	}
 	return size, err
 }
 

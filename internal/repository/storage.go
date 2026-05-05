@@ -9,18 +9,20 @@ import (
 )
 
 // Common storage interface
-type StorageInterface interface {
+//
+//go:generate mockery --name=Storage --output=../service/mocks --with-expecter
+type Storage interface {
 	Add(ctx context.Context, id, url string) error
 	Get(ctx context.Context, id string) (string, error)
 	Ping(ctx context.Context) error
 	AddBatch(ctx context.Context, items []Row) error
 }
 
-func DetermineStorage(cfg *config.Config) (StorageInterface, error) {
+func GetStorage(cfg *config.Config) (Storage, error) {
 	if (cfg.DatabaseUrl != "") && (cfg.FileStoragePath != "") {
 		return nil, fmt.Errorf("%w: cannot use both -d (database storage) and -f (file storage)", ErrMutuallyExclusiveFlags)
 	}
-	var storage StorageInterface
+	var storage Storage
 	var err error
 	switch {
 	case cfg.DatabaseUrl != "":
@@ -34,7 +36,7 @@ func DetermineStorage(cfg *config.Config) (StorageInterface, error) {
 		storage, err = NewMemStorage()
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to create storage: %w", err)
 	}
 	return storage, nil
 }

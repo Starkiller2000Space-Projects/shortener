@@ -26,7 +26,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Unable to initialize logger: %v", err)
 	}
-	store, err := repository.DetermineStorage(configData)
+	store, err := repository.GetStorage(configData)
 	if err != nil {
 		log.Fatalf("Unable to create storage: %v", err)
 	}
