@@ -3,7 +3,9 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -34,13 +36,21 @@ func NewFileStorage(filePath string) (*fileStorage, error) {
 func (fs *fileStorage) load() error {
 	f, err := os.Open(fs.filePath)
 	if err != nil {
-		return fmt.Errorf("Failed to load storage file: %w", err)
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("failed to load storage file: %w", err)
 	}
 	defer f.Close()
+
 	var records []fileRecord
 	if err := json.NewDecoder(f).Decode(&records); err != nil {
-		return fmt.Errorf("Failed to load storage file: %w", err)
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		return fmt.Errorf("failed to load storage file: %w", err)
 	}
+
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	for _, rec := range records {
