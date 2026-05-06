@@ -26,7 +26,7 @@ func (h *Handler) ShortenJSONHandler(w http.ResponseWriter, r *http.Request) {
 	shortURL, err := h.service.CreateShortURL(r.Context(), requestData.URL, r.Header.Get("X-Forwarded-Proto"), r.Host)
 	if err != nil {
 		if errors.Is(err, service.ErrorEmptyUrl) {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			http.Error(w, "Empty url", http.StatusBadRequest)
 			return
 		}
 		if errors.Is(err, service.ErrorDuplicate) {
@@ -52,11 +52,11 @@ func (h *Handler) ShortenJSONHandler(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) PostBatchShortenHandler(w http.ResponseWriter, r *http.Request) {
 	var req []models.BatchShortenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(w, "Invalid json", http.StatusBadRequest)
 		return
 	}
 	if len(req) == 0 {
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		http.Error(w, "Empty json", http.StatusBadRequest)
 		return
 	}
 	resp, err := h.service.CreateShortURLsBatch(
@@ -68,7 +68,7 @@ func (h *Handler) PostBatchShortenHandler(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		switch {
 		case errors.Is(err, service.ErrorEmptyUrl), errors.Is(err, service.ErrorEmptyBatch):
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			http.Error(w, "Empty url", http.StatusBadRequest)
 		default:
 			logger.Log.Error("Failed to create short URLs for batch", zap.Error(err))
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

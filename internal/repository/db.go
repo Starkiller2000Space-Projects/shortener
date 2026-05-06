@@ -8,8 +8,6 @@ import (
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
-	"github.com/jackc/pgerrcode"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/max-marek-projects/shortener/internal/config/db"
 	"github.com/max-marek-projects/shortener/internal/logger"
 	"go.uber.org/zap"
@@ -59,23 +57,20 @@ func (dbs *dbStorage) runMigrations() error {
 
 // add url into storage and return generated id
 func (dbs *dbStorage) Add(ctx context.Context, id, url string) error {
-	select {
-	case <-ctx.Done(): // cancel or deadline
-		return ctx.Err()
-	default:
-	}
-	_, err := dbs.storage.ExecContext(ctx, "INSERT INTO urls(id, original_url) VALUES($1, $2)", id, url)
+	var existingID string
+	query := `
+		INSERT INTO urls (id, original_url)
+		VALUES ($1, $2)
+		ON CONFLICT (original_url) DO UPDATE
+		SET original_url = EXCLUDED.original_url
+		RETURNING id
+	`
+	err := dbs.storage.QueryRowContext(ctx, query, id, url).Scan(&existingID)
 	if err != nil {
-		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
-			var existingID string
-			queryErr := dbs.storage.QueryRowContext(ctx, "SELECT id FROM urls WHERE original_url = $1", url).Scan(&existingID)
-			if queryErr != nil {
-				return fmt.Errorf("failed to fetch existing url: %w", queryErr)
-			}
-			return &ErrAlreadyExists{ExistingID: existingID}
-		}
 		return fmt.Errorf("Failed to add url to storage: %w", err)
+	}
+	if existingID != id {
+		return &ErrAlreadyExists{ExistingID: existingID}
 	}
 	return nil
 }
@@ -108,13 +103,14 @@ func (dbs *dbStorage) AddBatch(ctx context.Context, items []Row) error {
 	if len(items) == 0 {
 		return nil
 	}
-	tx, err := dbs.storage.BeginTx(ctx, nil)
-	if err != nil {
+	query, args := dbs.buildBatchInsertQuery(items)
+	if _, err := dbs.storage.ExecContext(ctx, query, args...); err != nil {
 		return fmt.Errorf("failed to add data as batch: %w", err)
 	}
-	defer func() {
-		_ = tx.Rollback()
-	}()
+	return nil
+}
+
+func (dbs *dbStorage) buildBatchInsertQuery(items []Row) (string, []any) {
 	var b strings.Builder
 	b.WriteString("INSERT INTO urls(id, original_url) VALUES ")
 
@@ -127,9 +123,5 @@ func (dbs *dbStorage) AddBatch(ctx context.Context, items []Row) error {
 		args = append(args, item.ID, item.OriginalURL)
 	}
 
-	if _, err := tx.ExecContext(ctx, b.String(), args...); err != nil {
-		return fmt.Errorf("failed to add data as batch: %w", err)
-	}
-
-	return tx.Commit()
+	return b.String(), args
 }

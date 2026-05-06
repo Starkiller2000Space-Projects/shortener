@@ -44,7 +44,7 @@ func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 	shortURL, err := h.service.CreateShortURL(r.Context(), string(body), r.Header.Get("X-Forwarded-Proto"), r.Host)
 	if err != nil {
 		if errors.Is(err, service.ErrorEmptyUrl) {
-			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			http.Error(w, "Empty url", http.StatusBadRequest)
 			return
 		}
 		if errors.Is(err, service.ErrorDuplicate) {
