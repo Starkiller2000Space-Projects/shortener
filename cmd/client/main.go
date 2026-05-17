@@ -16,7 +16,6 @@ func makeRequest(endpoint string, data url.Values) (*http.Request, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	// в заголовках запроса указываем кодировку
 	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	return request, nil
 }

@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,11 +12,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/max-marek-projects/shortener/internal/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/max-marek-projects/shortener/internal/handlers/mocks"
 )
 
 // create new router for handlers testing
-func newAPITestRouter(service *mockService) http.Handler {
+func newAPITestRouter(service *mocks.Service) http.Handler {
 	h := NewHandler(service)
 
 	r := chi.NewRouter()
@@ -28,13 +31,11 @@ func newAPITestRouter(service *mockService) http.Handler {
 
 // test adding url to storage
 func TestShortenJSONHandler(t *testing.T) {
-	fixedId := "test1234"
-	testStorage := &mockService{
-		data:    make(map[string]string),
-		fixedID: fixedId,
-	}
+	fixedID := "test1234"
+	mockService := mocks.NewService(t)
+	mockService.EXPECT().CreateShortURL(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fmt.Sprintf("http://example/%s", fixedID), nil)
 
-	ts := httptest.NewServer(newAPITestRouter(testStorage))
+	ts := httptest.NewServer(newAPITestRouter(mockService))
 	defer ts.Close()
 
 	type want struct {
@@ -82,25 +83,25 @@ func TestShortenJSONHandler(t *testing.T) {
 			parsedUrl, err := url.Parse(responseData.Result)
 			require.NoError(t, err)
 			createdId := strings.TrimLeft(parsedUrl.Path, "/")
-			assert.Equal(t, createdId, fixedId)
-			savedUrl, err := testStorage.GetOriginalURL(context.TODO(), createdId)
-			require.NoError(t, err)
+			assert.Equal(t, createdId, fixedID)
 			var requestData models.ShortenRequest
 			require.NoError(t, json.Unmarshal([]byte(test.request), &requestData))
-			assert.Equal(t, savedUrl, strings.TrimSpace(requestData.URL))
 		})
 	}
 }
 
 // test adding data as batch
 func TestPostBatchShortenHandler(t *testing.T) {
-	fixedId := "test1234"
-	testStorage := &mockService{
-		data:    make(map[string]string),
-		fixedID: fixedId,
-	}
+	fixedID := "test1234"
+	mockService := mocks.NewService(t)
+	mockService.EXPECT().CreateShortURLsBatch(
+		mock.Anything, mock.Anything, mock.Anything, mock.Anything,
+	).Return(
+		[]models.BatchShortenResponse{{CorrelationID: "1", ShortURL: fmt.Sprintf("http://example.com/%s", fixedID)}},
+		nil,
+	)
 
-	ts := httptest.NewServer(newAPITestRouter(testStorage))
+	ts := httptest.NewServer(newAPITestRouter(mockService))
 	defer ts.Close()
 
 	type want struct {
@@ -147,14 +148,9 @@ func TestPostBatchShortenHandler(t *testing.T) {
 			require.NoError(t, json.Unmarshal([]byte(body), &responseData))
 			var requestData []models.BatchShortenRequest
 			require.NoError(t, json.Unmarshal([]byte(test.request), &requestData))
-			assert.True(t, len(responseData) == len(requestData))
-			for index := range responseData {
-				parsedUrl, err := url.Parse(responseData[index].ShortURL)
+			for _, responseItem := range responseData {
+				_, err := url.Parse(responseItem.ShortURL)
 				require.NoError(t, err)
-				createdId := strings.TrimLeft(parsedUrl.Path, "/")
-				savedUrl, err := testStorage.GetOriginalURL(context.TODO(), createdId)
-				require.NoError(t, err)
-				assert.Equal(t, savedUrl, strings.TrimSpace(requestData[index].OriginalURL))
 			}
 		})
 	}

@@ -20,9 +20,9 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 	r := chi.NewRouter()
 
 	// middlewares
+	r.Use(middleware.Recoverer)
 	r.Use(middlewares.GzipMiddleware)
 	r.Use(middlewares.RequestsLogger)
-	r.Use(middleware.Recoverer)
 
 	// endpoints
 	r.Get("/ping", h.PingHandler)

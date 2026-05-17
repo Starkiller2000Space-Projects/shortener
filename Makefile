@@ -9,3 +9,6 @@ run-client:
 
 run-binary:
 	./bin/shortener
+
+mocks:
+	go generate ./...

@@ -2,20 +2,25 @@ package middlewares
 
 import (
 	"compress/gzip"
+	"fmt"
 	"io"
 	"mime"
 	"net/http"
 	"slices"
 
+	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/max-marek-projects/shortener/internal/utils"
+	"go.uber.org/zap"
 )
 
+// writer for compressed data
 type compressWriter struct {
 	w          http.ResponseWriter
 	zw         *gzip.Writer
 	compressed bool
 }
 
+// get new compressed data writer
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	return &compressWriter{
 		w: w,
@@ -50,15 +55,17 @@ func (c *compressWriter) Close() error {
 	return nil
 }
 
+// reader for compressed data
 type compressReader struct {
 	r  io.ReadCloser
 	zr *gzip.Reader
 }
 
+// get new reader for compressed data
 func newCompressReader(r io.ReadCloser) (*compressReader, error) {
 	zr, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create reader: %w", err)
 	}
 
 	return &compressReader{
@@ -73,14 +80,15 @@ func (c compressReader) Read(p []byte) (n int, err error) {
 
 func (c *compressReader) Close() error {
 	if err := c.r.Close(); err != nil {
-		return err
+		return fmt.Errorf("Failed close compressed data reader: %w", err)
 	}
 	return c.zr.Close()
 }
 
+// middleware for
 func GzipMiddleware(next http.Handler) http.Handler {
 	gzipFn := func(w http.ResponseWriter, r *http.Request) {
-		ow := w // copy writer
+		ow := w // copy writer to save original value
 
 		acceptEncoding := utils.ParseAcceptEncoding(r.Header.Get("Accept-Encoding"))
 		if q, ok := acceptEncoding["gzip"]; ok && q > 0 {
@@ -92,7 +100,8 @@ func GzipMiddleware(next http.Handler) http.Handler {
 		if slices.Contains(utils.ParseContentEncoding(r.Header.Get("Content-Encoding")), "gzip") {
 			cr, err := newCompressReader(r.Body)
 			if err != nil {
-				w.WriteHeader(http.StatusInternalServerError)
+				logger.Log.Error("Failed to create compress data reader", zap.Error(err))
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 				return
 			}
 			r.Body = cr

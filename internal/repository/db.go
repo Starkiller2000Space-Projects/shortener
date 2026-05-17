@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/max-marek-projects/shortener/internal/config/db"
@@ -23,7 +25,7 @@ func NewDBStorage(dbURL string) (*dbStorage, error) {
 	config := db.NewDbConf(dbURL)
 	storage, err := db.Connect(config)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to create DB storage: %w", err)
 	}
 	dbs := &dbStorage{
 		storage: storage,
@@ -31,7 +33,7 @@ func NewDBStorage(dbURL string) (*dbStorage, error) {
 	}
 	err = dbs.runMigrations()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to create DB storage: %w", err)
 	}
 	return dbs, nil
 }
@@ -44,25 +46,31 @@ func (dbs *dbStorage) runMigrations() error {
 		dbs.config.URL,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to run migrations: %w", err)
 	}
 	defer m.Close()
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return err
+		return fmt.Errorf("Failed to run migrations: %w", err)
 	}
 	return nil
 }
 
 // add url into storage and return generated id
 func (dbs *dbStorage) Add(ctx context.Context, id, url string) error {
-	select {
-	case <-ctx.Done(): // cancel or deadline
-		return ctx.Err()
-	default:
-	}
-	_, err := dbs.storage.ExecContext(ctx, "INSERT INTO urls(id, original_url) VALUES($1, $2)", id, url)
+	var existingID string
+	query := `
+		INSERT INTO urls (id, original_url)
+		VALUES ($1, $2)
+		ON CONFLICT (original_url) DO UPDATE
+		SET original_url = EXCLUDED.original_url
+		RETURNING id
+	`
+	err := dbs.storage.QueryRowContext(ctx, query, id, url).Scan(&existingID)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to add url to storage: %w", err)
+	}
+	if existingID != id {
+		return &ErrAlreadyExists{ExistingID: existingID}
 	}
 	return nil
 }
@@ -80,7 +88,7 @@ func (dbs *dbStorage) Get(ctx context.Context, id string) (string, error) {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrNotFound
 		}
-		return "", err
+		return "", fmt.Errorf("Failed to get url from storage by id: %w", err)
 	}
 	return val, nil
 }
@@ -92,25 +100,28 @@ func (dbs *dbStorage) Ping(ctx context.Context) error {
 
 // add data as batch
 func (dbs *dbStorage) AddBatch(ctx context.Context, items []Row) error {
-	tx, err := dbs.storage.BeginTx(ctx, nil)
-	if err != nil {
-		return err
+	if len(items) == 0 {
+		return nil
 	}
-	defer func() {
-		_ = tx.Rollback()
-	}()
-
-	stmt, err := tx.PrepareContext(ctx, `INSERT INTO urls(id, original_url) VALUES($1, $2)`)
-	if err != nil {
-		return err
+	query, args := dbs.buildBatchInsertQuery(items)
+	if _, err := dbs.storage.ExecContext(ctx, query, args...); err != nil {
+		return fmt.Errorf("failed to add data as batch: %w", err)
 	}
-	defer stmt.Close()
+	return nil
+}
 
-	for _, item := range items {
-		if _, err := stmt.ExecContext(ctx, item.ID, item.OriginalURL); err != nil {
-			return err
+func (dbs *dbStorage) buildBatchInsertQuery(items []Row) (string, []any) {
+	var b strings.Builder
+	b.WriteString("INSERT INTO urls(id, original_url) VALUES ")
+
+	args := make([]any, 0, len(items)*2)
+	for i, item := range items {
+		if i > 0 {
+			b.WriteString(", ")
 		}
+		b.WriteString(fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2))
+		args = append(args, item.ID, item.OriginalURL)
 	}
 
-	return tx.Commit()
+	return b.String(), args
 }

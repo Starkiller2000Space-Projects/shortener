@@ -6,16 +6,18 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/max-marek-projects/shortener/internal/service"
+	"go.uber.org/zap"
 )
 
 // Endpoints handler
 type Handler struct {
-	service service.EndpointService
+	service service.Service
 }
 
 // Get new endpoints handler
-func NewHandler(service service.EndpointService) *Handler {
+func NewHandler(service service.Service) *Handler {
 	return &Handler{service: service}
 }
 
@@ -42,10 +44,17 @@ func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 	shortURL, err := h.service.CreateShortURL(r.Context(), string(body), r.Header.Get("X-Forwarded-Proto"), r.Host)
 	if err != nil {
 		if errors.Is(err, service.ErrorEmptyUrl) {
-			http.Error(w, "Bad request", http.StatusBadRequest)
+			http.Error(w, "Empty url", http.StatusBadRequest)
 			return
 		}
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		if errors.Is(err, service.ErrorDuplicate) {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusConflict)
+			w.Write([]byte(shortURL))
+			return
+		}
+		logger.Log.Error("Failed create short URL", zap.Error(err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "text/plain")
@@ -55,7 +64,8 @@ func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) PingHandler(w http.ResponseWriter, r *http.Request) {
 	if err := h.service.Ping(r.Context()); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+		logger.Log.Error("Failed to ping storage", zap.Error(err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)

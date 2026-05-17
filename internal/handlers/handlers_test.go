@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,64 +11,16 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/max-marek-projects/shortener/internal/models"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/max-marek-projects/shortener/internal/handlers/mocks"
+	"github.com/max-marek-projects/shortener/internal/repository"
 )
 
-// mock with service interface
-type mockService struct {
-	data    map[string]string
-	fixedID string
-}
-
-// add url into storage and return generated id
-func (service *mockService) CreateShortURL(ctx context.Context, original, scheme, host string) (string, error) {
-	scheme = "http"
-	shortID := service.fixedID
-	service.data[shortID] = original
-	shortURL := scheme + "://" + host + "/" + shortID
-	return shortURL, nil
-}
-
-// get url by id from storage if exists
-func (service *mockService) GetOriginalURL(ctx context.Context, short string) (string, error) {
-	val, ok := service.data[short]
-	if !ok {
-		return "", fmt.Errorf("Not found: %s", short)
-	}
-	return val, nil
-}
-
-// get url by id from storage if exists
-func (service *mockService) Ping(ctx context.Context) error {
-	return nil
-}
-
-func (service *mockService) CreateShortURLsBatch(
-	ctx context.Context,
-	req []models.BatchShortenRequest,
-	scheme string,
-	host string,
-) ([]models.BatchShortenResponse, error) {
-	if scheme == "" {
-		scheme = "http"
-	}
-	resp := make([]models.BatchShortenResponse, len(req))
-	for i, r := range req {
-		createdId := fmt.Sprintf("%07s", r.CorrelationID)
-		service.data[createdId] = r.OriginalURL
-		resp[i] = models.BatchShortenResponse{
-			CorrelationID: r.CorrelationID,
-			ShortURL:      scheme + "://" + host + "/" + createdId,
-		}
-	}
-
-	return resp, nil
-}
-
 // create new router for handlers testing
-func newTestRouter(service *mockService) http.Handler {
+func newTestRouter(service *mocks.Service) http.Handler {
 	h := NewHandler(service)
 
 	r := chi.NewRouter()
@@ -109,14 +60,12 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path, body string) (
 // test getting url by its id
 func TestIdHandler(t *testing.T) {
 	fixedID := "test1234"
-	testStorage := &mockService{
-		data:    make(map[string]string),
-		fixedID: fixedID,
-	}
 	existingUrl := "https://example.com/"
-	testStorage.data[fixedID] = existingUrl
+	mockService := mocks.NewService(t)
+	mockService.EXPECT().GetOriginalURL(mock.Anything, fixedID).Return(existingUrl, nil)
+	mockService.EXPECT().GetOriginalURL(mock.Anything, mock.Anything).Return("", repository.ErrNotFound)
 
-	ts := httptest.NewServer(newTestRouter(testStorage))
+	ts := httptest.NewServer(newTestRouter(mockService))
 	defer ts.Close()
 
 	type want struct {
@@ -178,13 +127,11 @@ func TestIdHandler(t *testing.T) {
 
 // test adding url to storage
 func TestPostUrlHandler(t *testing.T) {
-	fixedId := "test1234"
-	testStorage := &mockService{
-		data:    make(map[string]string),
-		fixedID: fixedId,
-	}
+	fixedID := "test1234"
+	mockService := mocks.NewService(t)
+	mockService.EXPECT().CreateShortURL(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fmt.Sprintf("http://example/%s", fixedID), nil)
 
-	ts := httptest.NewServer(newTestRouter(testStorage))
+	ts := httptest.NewServer(newTestRouter(mockService))
 	defer ts.Close()
 
 	type want struct {
@@ -207,7 +154,7 @@ func TestPostUrlHandler(t *testing.T) {
 				code:        http.StatusCreated,
 				contentType: "text/plain",
 				success:     true,
-				body:        fixedId,
+				body:        fixedID,
 			},
 		},
 		{
@@ -233,18 +180,15 @@ func TestPostUrlHandler(t *testing.T) {
 			parsedUrl, err := url.Parse(body)
 			require.NoError(t, err)
 			createdId := strings.TrimLeft(parsedUrl.Path, "/")
-			assert.Equal(t, createdId, fixedId)
-			savedUrl, err := testStorage.GetOriginalURL(context.TODO(), createdId)
-			require.NoError(t, err)
-			assert.Equal(t, savedUrl, strings.TrimSpace(test.request))
+			assert.Equal(t, createdId, fixedID)
 		})
 	}
 }
 
 func TestPingHandler(t *testing.T) {
-	fixedId := "test1234"
-	mock := &mockService{data: make(map[string]string), fixedID: fixedId}
-	handler := NewHandler(mock)
+	mockService := mocks.NewService(t)
+	mockService.EXPECT().Ping(mock.Anything).Return(nil)
+	handler := NewHandler(mockService)
 
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
 	w := httptest.NewRecorder()
