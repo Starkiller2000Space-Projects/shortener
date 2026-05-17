@@ -59,7 +59,7 @@ func (dbs *dbStorage) runMigrations() error {
 func (dbs *dbStorage) Add(ctx context.Context, info Row) error {
 	var existingID string
 	query := `--sql
-		INSERT INTO urls (id, original_url, user_id. is_deleted)
+		INSERT INTO urls (id, original_url, user_id, is_deleted)
 		VALUES ($1, $2, $3, false)
 		ON CONFLICT (original_url) DO UPDATE
 		SET original_url = EXCLUDED.original_url
