@@ -18,6 +18,7 @@ type Config struct {
 	WriteTimeout    time.Duration `env:"WRITE_TIMEOUT"`     // server write timeout in seconds
 	LoggerLevel     string        `env:"LOGGER_LEVEL"`      // logger level DEBUG / INFO / WARNING / ERROR / FATAL
 	FileStoragePath string        `env:"FILE_STORAGE_PATH"` // file path to save shortened urls to
+	DatabaseUrl     string        `env:"DATABASE_DSN"`      // database connection url
 }
 
 // parse all flags from command line
@@ -37,9 +38,10 @@ func LoadConfig() *Config {
 	flag.StringVar(&config.ShowAddr, "b", "", "address and port to show for short urls")
 	flag.IntVar(&config.IdSize, "i", 8, "address and port to show for short urls")
 	flag.StringVar(&config.LoggerLevel, "l", "INFO", "logger level")
-	var readSec, writeSec int
-	flag.StringVar(&config.FileStoragePath, "f", "./storage.json", "file path to save shortened urls to")
+	flag.StringVar(&config.FileStoragePath, "f", "", "file path to save shortened urls to")
+	flag.StringVar(&config.DatabaseUrl, "d", "", "database connection url")
 	// read flags to temp vars
+	var readSec, writeSec int
 	flag.IntVar(&readSec, "r", 30, "server read timeout in seconds")
 	flag.IntVar(&writeSec, "w", 30, "server write timeout in seconds")
 	// parse flags

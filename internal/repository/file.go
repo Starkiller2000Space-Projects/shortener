@@ -1,19 +1,14 @@
-package storage
+package repository
 
 import (
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/max-marek-projects/shortener/internal/utils"
 )
-
-// Storage interface
-type StorageInterface interface {
-	Add(ctx context.Context, url string) (string, error)
-	Get(ctx context.Context, id string) (string, error)
-}
 
 type fileRecord struct {
 	ShortURL    string `json:"short_url"`
@@ -27,7 +22,7 @@ type fileStorage struct {
 	idSize   int
 }
 
-func NewStorage(filePath string, idSize int) (*fileStorage, error) {
+func NewFileStorage(filePath string, idSize int) (*fileStorage, error) {
 	fs := &fileStorage{
 		data:     make(map[string]string),
 		filePath: filePath,
@@ -104,4 +99,27 @@ func (fs *fileStorage) Get(ctx context.Context, id string) (string, error) {
 		return "", ErrNotFound
 	}
 	return val, nil
+}
+
+// ping storage and check if it is available
+func (fs *fileStorage) Ping(ctx context.Context) error {
+	if _, err := os.Stat(fs.filePath); err == nil {
+		f, err := os.Open(fs.filePath)
+		if err != nil {
+			return err
+		}
+		f.Close()
+		return nil
+	} else if os.IsNotExist(err) {
+		dir := filepath.Dir(fs.filePath)
+		tmp, err := os.CreateTemp(dir, "ping_test_*") // create temporary file in order to check permissions
+		if err != nil {
+			return err
+		}
+		tmp.Close()
+		os.Remove(tmp.Name())
+		return nil
+	} else {
+		return err
+	}
 }

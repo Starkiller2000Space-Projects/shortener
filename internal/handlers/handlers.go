@@ -60,3 +60,11 @@ func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte(shortURL))
 }
+
+func (h *Handler) PingHandler(w http.ResponseWriter, r *http.Request) {
+	if err := h.service.Ping(r.Context()); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}

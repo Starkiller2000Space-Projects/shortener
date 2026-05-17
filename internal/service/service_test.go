@@ -28,6 +28,10 @@ func (m *mockStorage) Get(ctx context.Context, id string) (string, error) {
 	return val, nil
 }
 
+func (m *mockStorage) Ping(ctx context.Context) error {
+	return nil
+}
+
 func TestEndpointService_CreateShortURL(t *testing.T) {
 	fixedId := "test1234"
 	testStorage := &mockStorage{

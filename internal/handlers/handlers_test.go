@@ -40,6 +40,11 @@ func (service *mockService) GetOriginalURL(ctx context.Context, short string) (s
 	return val, nil
 }
 
+// get url by id from storage if exists
+func (service *mockService) Ping(ctx context.Context) error {
+	return nil
+}
+
 // create new router for handlers testing
 func newTestRouter(service *mockService) http.Handler {
 	h := NewHandler(service)
@@ -210,4 +215,18 @@ func TestPostUrlHandler(t *testing.T) {
 			assert.Equal(t, savedUrl, strings.TrimSpace(test.request))
 		})
 	}
+}
+
+func TestPingHandler(t *testing.T) {
+	fixedId := "test1234"
+	mock := &mockService{data: make(map[string]string), fixedID: fixedId}
+	handler := NewHandler(mock)
+
+	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	w := httptest.NewRecorder()
+	handler.PingHandler(w, req)
+
+	res := w.Result()
+	defer res.Body.Close()
+	assert.Equal(t, http.StatusOK, res.StatusCode)
 }

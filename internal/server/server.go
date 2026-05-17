@@ -18,14 +18,22 @@ type Server struct {
 
 func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.Duration) *Server {
 	r := chi.NewRouter()
+
+	// middlewares
 	r.Use(middlewares.GzipMiddleware)
 	r.Use(middlewares.RequestsLogger)
 	r.Use(middleware.Recoverer)
+
+	// endpoints
+	r.Get("/ping", h.PingHandler)
 	r.HandleFunc("/{id}", h.IdHandler)
 	r.HandleFunc("/", h.PostUrlHandler)
 
+	// api router
 	apiRouter := chi.NewRouter()
 	apiRouter.Post("/shorten", h.ShortenJSONHandler)
+
+	// mount all routers
 	r.Mount("/api", apiRouter)
 
 	return &Server{
