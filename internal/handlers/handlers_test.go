@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/max-marek-projects/shortener/internal/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,7 +36,7 @@ func (service *mockService) CreateShortURL(ctx context.Context, original, scheme
 func (service *mockService) GetOriginalURL(ctx context.Context, short string) (string, error) {
 	val, ok := service.data[short]
 	if !ok {
-		return "", fmt.Errorf("Not found")
+		return "", fmt.Errorf("Not found: %s", short)
 	}
 	return val, nil
 }
@@ -45,13 +46,36 @@ func (service *mockService) Ping(ctx context.Context) error {
 	return nil
 }
 
+func (service *mockService) CreateShortURLsBatch(
+	ctx context.Context,
+	req []models.BatchShortenRequest,
+	scheme string,
+	host string,
+) ([]models.BatchShortenResponse, error) {
+	if scheme == "" {
+		scheme = "http"
+	}
+	resp := make([]models.BatchShortenResponse, len(req))
+	for i, r := range req {
+		createdId := fmt.Sprintf("%07s", r.CorrelationID)
+		service.data[createdId] = r.OriginalURL
+		resp[i] = models.BatchShortenResponse{
+			CorrelationID: r.CorrelationID,
+			ShortURL:      scheme + "://" + host + "/" + createdId,
+		}
+	}
+
+	return resp, nil
+}
+
 // create new router for handlers testing
 func newTestRouter(service *mockService) http.Handler {
 	h := NewHandler(service)
 
 	r := chi.NewRouter()
-	r.HandleFunc("/", h.PostUrlHandler)
-	r.HandleFunc("/{id}", h.IdHandler)
+	r.Get("/ping", h.PingHandler)
+	r.Get("/{id}", h.IdHandler)
+	r.Post("/", h.PostUrlHandler)
 
 	return r
 }

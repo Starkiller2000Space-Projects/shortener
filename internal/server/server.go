@@ -26,12 +26,13 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 
 	// endpoints
 	r.Get("/ping", h.PingHandler)
-	r.HandleFunc("/{id}", h.IdHandler)
-	r.HandleFunc("/", h.PostUrlHandler)
+	r.Get("/{id}", h.IdHandler)
+	r.Post("/", h.PostUrlHandler)
 
 	// api router
 	apiRouter := chi.NewRouter()
 	apiRouter.Post("/shorten", h.ShortenJSONHandler)
+	apiRouter.Post("/shorten/batch", h.PostBatchShortenHandler)
 
 	// mount all routers
 	r.Mount("/api", apiRouter)

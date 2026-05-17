@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-
-	"github.com/max-marek-projects/shortener/internal/utils"
 )
 
 type fileRecord struct {
@@ -19,14 +17,12 @@ type fileStorage struct {
 	mu       sync.RWMutex
 	data     map[string]string
 	filePath string
-	idSize   int
 }
 
-func NewFileStorage(filePath string, idSize int) (*fileStorage, error) {
+func NewFileStorage(filePath string) (*fileStorage, error) {
 	fs := &fileStorage{
 		data:     make(map[string]string),
 		filePath: filePath,
-		idSize:   idSize,
 	}
 	if err := fs.load(); err != nil && !os.IsNotExist(err) {
 		return nil, err
@@ -68,21 +64,20 @@ func (fs *fileStorage) save() error {
 }
 
 // add url into storage and return generated id
-func (fs *fileStorage) Add(ctx context.Context, url string) (string, error) {
+func (fs *fileStorage) Add(ctx context.Context, id, url string) error {
 	select {
 	case <-ctx.Done(): // cancel or deadline
-		return "", ctx.Err()
+		return ctx.Err()
 	default:
 	}
 	fs.mu.Lock()         // lock storage for writing
 	defer fs.mu.Unlock() // unlock storage for writing after function completion
-	id := utils.GenerateId(fs.idSize)
 	fs.data[id] = url
 	if err := fs.save(); err != nil {
 		delete(fs.data, id) // undo on error
-		return "", err
+		return err
 	}
-	return id, nil
+	return nil
 }
 
 // get url by id from storage if exists
@@ -122,4 +117,32 @@ func (fs *fileStorage) Ping(ctx context.Context) error {
 	} else {
 		return err
 	}
+}
+
+func (fs *fileStorage) AddBatch(ctx context.Context, items []Row) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	file, err := os.OpenFile(fs.filePath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	for _, item := range items {
+		fs.data[item.ID] = item.OriginalURL
+	}
+	if err := fs.save(); err != nil {
+		for _, item := range items {
+			delete(fs.data, item.ID) // undo on error
+		}
+		return err
+	}
+	return nil
 }

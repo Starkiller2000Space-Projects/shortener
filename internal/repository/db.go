@@ -8,7 +8,6 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/max-marek-projects/shortener/internal/config/db"
 	"github.com/max-marek-projects/shortener/internal/logger"
-	"github.com/max-marek-projects/shortener/internal/utils"
 	"go.uber.org/zap"
 
 	_ "github.com/golang-migrate/migrate/v4/database/postgres" // required for migrations
@@ -18,10 +17,9 @@ import (
 type dbStorage struct {
 	storage *sql.DB
 	config  *db.DBConf
-	idSize  int
 }
 
-func NewDBStorage(dbURL string, idSize int) (*dbStorage, error) {
+func NewDBStorage(dbURL string) (*dbStorage, error) {
 	config := db.NewDbConf(dbURL)
 	storage, err := db.Connect(config)
 	if err != nil {
@@ -30,7 +28,6 @@ func NewDBStorage(dbURL string, idSize int) (*dbStorage, error) {
 	dbs := &dbStorage{
 		storage: storage,
 		config:  config,
-		idSize:  idSize,
 	}
 	err = dbs.runMigrations()
 	if err != nil {
@@ -57,18 +54,17 @@ func (dbs *dbStorage) runMigrations() error {
 }
 
 // add url into storage and return generated id
-func (dbs *dbStorage) Add(ctx context.Context, url string) (string, error) {
+func (dbs *dbStorage) Add(ctx context.Context, id, url string) error {
 	select {
 	case <-ctx.Done(): // cancel or deadline
-		return "", ctx.Err()
+		return ctx.Err()
 	default:
 	}
-	id := utils.GenerateId(dbs.idSize)
 	_, err := dbs.storage.ExecContext(ctx, "INSERT INTO urls(id, original_url) VALUES($1, $2)", id, url)
 	if err != nil {
-		return "", err
+		return err
 	}
-	return id, nil
+	return nil
 }
 
 // get url by id from storage if exists
@@ -92,4 +88,29 @@ func (dbs *dbStorage) Get(ctx context.Context, id string) (string, error) {
 // ping storage and check if it is available
 func (dbs *dbStorage) Ping(ctx context.Context) error {
 	return dbs.storage.PingContext(ctx)
+}
+
+// add data as batch
+func (dbs *dbStorage) AddBatch(ctx context.Context, items []Row) error {
+	tx, err := dbs.storage.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback()
+	}()
+
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO urls(id, original_url) VALUES($1, $2)`)
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, item := range items {
+		if _, err := stmt.ExecContext(ctx, item.ID, item.OriginalURL); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }

@@ -40,3 +40,33 @@ func (h *Handler) ShortenJSONHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func (h *Handler) PostBatchShortenHandler(w http.ResponseWriter, r *http.Request) {
+	var req []models.BatchShortenRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if len(req) == 0 {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	resp, err := h.service.CreateShortURLsBatch(
+		r.Context(),
+		req,
+		r.Header.Get("X-Forwarded-Proto"),
+		r.Host,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrorEmptyUrl), errors.Is(err, service.ErrorEmptyBatch):
+			http.Error(w, "bad request", http.StatusBadRequest)
+		default:
+			http.Error(w, "internal server error", http.StatusInternalServerError)
+		}
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_ = json.NewEncoder(w).Encode(resp)
+}
