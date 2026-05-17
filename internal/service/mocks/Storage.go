@@ -22,17 +22,17 @@ func (_m *Storage) EXPECT() *Storage_Expecter {
 	return &Storage_Expecter{mock: &_m.Mock}
 }
 
-// Add provides a mock function with given fields: ctx, id, url
-func (_m *Storage) Add(ctx context.Context, id string, url string) error {
-	ret := _m.Called(ctx, id, url)
+// Add provides a mock function with given fields: ctx, info
+func (_m *Storage) Add(ctx context.Context, info repository.Row) error {
+	ret := _m.Called(ctx, info)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Add")
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) error); ok {
-		r0 = rf(ctx, id, url)
+	if rf, ok := ret.Get(0).(func(context.Context, repository.Row) error); ok {
+		r0 = rf(ctx, info)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -47,15 +47,14 @@ type Storage_Add_Call struct {
 
 // Add is a helper method to define mock.On call
 //   - ctx context.Context
-//   - id string
-//   - url string
-func (_e *Storage_Expecter) Add(ctx interface{}, id interface{}, url interface{}) *Storage_Add_Call {
-	return &Storage_Add_Call{Call: _e.mock.On("Add", ctx, id, url)}
+//   - info repository.Row
+func (_e *Storage_Expecter) Add(ctx interface{}, info interface{}) *Storage_Add_Call {
+	return &Storage_Add_Call{Call: _e.mock.On("Add", ctx, info)}
 }
 
-func (_c *Storage_Add_Call) Run(run func(ctx context.Context, id string, url string)) *Storage_Add_Call {
+func (_c *Storage_Add_Call) Run(run func(ctx context.Context, info repository.Row)) *Storage_Add_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string))
+		run(args[0].(context.Context), args[1].(repository.Row))
 	})
 	return _c
 }
@@ -65,7 +64,7 @@ func (_c *Storage_Add_Call) Return(_a0 error) *Storage_Add_Call {
 	return _c
 }
 
-func (_c *Storage_Add_Call) RunAndReturn(run func(context.Context, string, string) error) *Storage_Add_Call {
+func (_c *Storage_Add_Call) RunAndReturn(run func(context.Context, repository.Row) error) *Storage_Add_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -170,6 +169,65 @@ func (_c *Storage_Get_Call) Return(_a0 string, _a1 error) *Storage_Get_Call {
 }
 
 func (_c *Storage_Get_Call) RunAndReturn(run func(context.Context, string) (string, error)) *Storage_Get_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetUserURLs provides a mock function with given fields: ctx, userID
+func (_m *Storage) GetUserURLs(ctx context.Context, userID string) ([]repository.UserURL, error) {
+	ret := _m.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUserURLs")
+	}
+
+	var r0 []repository.UserURL
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]repository.UserURL, error)); ok {
+		return rf(ctx, userID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) []repository.UserURL); ok {
+		r0 = rf(ctx, userID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]repository.UserURL)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, userID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Storage_GetUserURLs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUserURLs'
+type Storage_GetUserURLs_Call struct {
+	*mock.Call
+}
+
+// GetUserURLs is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+func (_e *Storage_Expecter) GetUserURLs(ctx interface{}, userID interface{}) *Storage_GetUserURLs_Call {
+	return &Storage_GetUserURLs_Call{Call: _e.mock.On("GetUserURLs", ctx, userID)}
+}
+
+func (_c *Storage_GetUserURLs_Call) Run(run func(ctx context.Context, userID string)) *Storage_GetUserURLs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *Storage_GetUserURLs_Call) Return(_a0 []repository.UserURL, _a1 error) *Storage_GetUserURLs_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Storage_GetUserURLs_Call) RunAndReturn(run func(context.Context, string) ([]repository.UserURL, error)) *Storage_GetUserURLs_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -16,26 +16,28 @@ type Server struct {
 	http.Server
 }
 
-func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.Duration) *Server {
+func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.Duration, cookieSecret string) *Server {
 	r := chi.NewRouter()
 
-	// middlewares
+	//middlewares
 	r.Use(middleware.Recoverer)
 	r.Use(middlewares.GzipMiddleware)
 	r.Use(middlewares.RequestsLogger)
 
-	// endpoints
+	// public endpoints
 	r.Get("/ping", h.PingHandler)
 	r.Get("/{id}", h.IdHandler)
-	r.Post("/", h.PostUrlHandler)
 
-	// api router
-	apiRouter := chi.NewRouter()
-	apiRouter.Post("/shorten", h.ShortenJSONHandler)
-	apiRouter.Post("/shorten/batch", h.PostBatchShortenHandler)
-
-	// mount all routers
-	r.Mount("/api", apiRouter)
+	// protected endpoints
+	r.Group(func(protected chi.Router) {
+		protected.Use(middlewares.AuthMiddleware(cookieSecret))
+		protected.Post("/", h.PostUrlHandler)
+		protected.Route("/api", func(api chi.Router) {
+			api.Post("/shorten", h.ShortenJSONHandler)
+			api.Post("/shorten/batch", h.PostBatchShortenHandler)
+			api.Get("/user/urls", h.GetUserURLsHandler)
+		})
+	})
 
 	return &Server{
 		Server: http.Server{

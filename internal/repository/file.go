@@ -8,24 +8,27 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
 )
 
 type fileRecord struct {
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
+	UserID      string `json:"user_id"`
 }
 
 type fileStorage struct {
-	mu       sync.RWMutex
-	data     map[string]string
+	*memStorage
 	filePath string
 }
 
 func NewFileStorage(filePath string) (*fileStorage, error) {
+	mem, err := NewMemStorage()
+	if err != nil {
+		return nil, err
+	}
 	fs := &fileStorage{
-		data:     make(map[string]string),
-		filePath: filePath,
+		memStorage: mem,
+		filePath:   filePath,
 	}
 	if err := fs.load(); err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("Failed to create file storage: %w", err)
@@ -54,15 +57,15 @@ func (fs *fileStorage) load() error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 	for _, rec := range records {
-		fs.data[rec.ShortURL] = rec.OriginalURL
+		fs.data[rec.ShortURL] = urlInfo{originalURL: rec.OriginalURL, userID: rec.UserID}
 	}
 	return nil
 }
 
 func (fs *fileStorage) save() error {
 	records := make([]fileRecord, 0, len(fs.data))
-	for short, original := range fs.data {
-		records = append(records, fileRecord{ShortURL: short, OriginalURL: original})
+	for short, info := range fs.data {
+		records = append(records, fileRecord{ShortURL: short, OriginalURL: info.originalURL})
 	}
 	f, err := os.Create(fs.filePath)
 	if err != nil {
@@ -75,36 +78,16 @@ func (fs *fileStorage) save() error {
 }
 
 // add url into storage and return generated id
-func (fs *fileStorage) Add(ctx context.Context, id, url string) error {
-	select {
-	case <-ctx.Done(): // cancel or deadline
-		return ctx.Err()
-	default:
+func (fs *fileStorage) add(info Row) error {
+	err := fs.memStorage.add(info)
+	if err != nil {
+		return err
 	}
-	fs.mu.Lock()         // lock storage for writing
-	defer fs.mu.Unlock() // unlock storage for writing after function completion
-	fs.data[id] = url
 	if err := fs.save(); err != nil {
-		delete(fs.data, id) // undo on error
+		delete(fs.data, info.ID) // undo on error
 		return fmt.Errorf("Failed to add data to storage file: %w", err)
 	}
 	return nil
-}
-
-// get url by id from storage if exists
-func (fs *fileStorage) Get(ctx context.Context, id string) (string, error) {
-	select {
-	case <-ctx.Done(): // cancel or deadline
-		return "", ctx.Err()
-	default:
-	}
-	fs.mu.RLock()         // lock storage for reading
-	defer fs.mu.RUnlock() // unlock storage for reading after function completion
-	val, ok := fs.data[id]
-	if !ok {
-		return "", ErrNotFound
-	}
-	return val, nil
 }
 
 // ping storage and check if it is available
@@ -130,24 +113,16 @@ func (fs *fileStorage) Ping(ctx context.Context) error {
 	}
 }
 
-func (fs *fileStorage) AddBatch(ctx context.Context, items []Row) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-	}
-
-	fs.mu.Lock()
-	defer fs.mu.Unlock()
-
+// add multiple values as batch
+func (fs *fileStorage) addBatch(items []Row) error {
 	file, err := os.OpenFile(fs.filePath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
 		return fmt.Errorf("Failed to add batch to file: %w", err)
 	}
 	defer file.Close()
-
-	for _, item := range items {
-		fs.data[item.ID] = item.OriginalURL
+	err = fs.memStorage.addBatch(items)
+	if err != nil {
+		return err
 	}
 	if err := fs.save(); err != nil {
 		for _, item := range items {

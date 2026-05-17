@@ -12,12 +12,18 @@ import (
 
 	"github.com/max-marek-projects/shortener/internal/repository"
 	"github.com/max-marek-projects/shortener/internal/service/mocks"
+
+	"github.com/max-marek-projects/shortener/internal/utils"
 )
+
+func ctxWithUserID(ctx context.Context, userID string) context.Context {
+	return context.WithValue(ctx, utils.UserIDKey, userID)
+}
 
 func TestService_CreateShortURL(t *testing.T) {
 	idSize := 8
 	mockStorage := mocks.NewStorage(t)
-	mockStorage.EXPECT().Add(mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	mockStorage.EXPECT().Add(mock.Anything, mock.Anything).Return(nil)
 	type want struct {
 		short string
 		err   error
@@ -84,7 +90,7 @@ func TestService_CreateShortURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testService := NewEndpointService(mockStorage, tt.showAddr, idSize)
-			got, err := testService.CreateShortURL(context.Background(), tt.originalURL, tt.scheme, tt.host)
+			got, err := testService.CreateShortURL(ctxWithUserID(context.Background(), "test-user-id"), tt.originalURL, tt.scheme, tt.host)
 			if tt.want.err != nil {
 				assert.Error(t, err)
 				assert.Equal(t, tt.want.err.Error(), err.Error())
@@ -138,7 +144,7 @@ func TestService_GetOriginalURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := testService.GetOriginalURL(context.Background(), tt.shortID)
+			got, err := testService.GetOriginalURL(ctxWithUserID(context.Background(), "test-user-id"), tt.shortID)
 			if tt.want.err != nil {
 				assert.Error(t, err)
 				assert.ErrorIs(t, err, tt.want.err)
