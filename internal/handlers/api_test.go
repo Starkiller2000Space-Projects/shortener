@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/max-marek-projects/shortener/internal/models"
@@ -16,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/max-marek-projects/shortener/internal/handlers/mocks"
+	"github.com/max-marek-projects/shortener/internal/utils"
 )
 
 // create new router for handlers testing
@@ -25,7 +29,8 @@ func newAPITestRouter(service *mocks.Service) http.Handler {
 	r := chi.NewRouter()
 	r.Post("/shorten", h.ShortenJSONHandler)
 	r.Post("/shorten/batch", h.PostBatchShortenHandler)
-
+	r.Get("/api/user/urls", h.GetUserURLsHandler)
+	r.Delete("/api/user/urls", h.DeleteUserURLsHandler)
 	return r
 }
 
@@ -154,4 +159,48 @@ func TestPostBatchShortenHandler(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetUserURLsHandler(t *testing.T) {
+	// Проверяем, что контекст работает
+	ctx := context.WithValue(context.Background(), utils.UserIDKey, "test-user")
+	userID, ok := utils.GetUserIDFromContext(ctx)
+	require.True(t, ok)
+	require.Equal(t, "test-user", userID)
+
+	mockService := mocks.NewService(t)
+	// Используем mock.Anything, чтобы не зависеть от точных значений scheme/host
+	mockService.EXPECT().GetUserURLs(mock.Anything, mock.Anything, mock.Anything).Return([]models.UserURL{}, nil)
+
+	h := NewHandler(mockService)
+	req := httptest.NewRequest(http.MethodGet, "/api/user/urls", nil)
+	req.Header.Set("X-Forwarded-Proto", "http")
+	req.Host = "example.com"
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	h.GetUserURLsHandler(w, req)
+
+	assert.Equal(t, http.StatusNoContent, w.Code)
+	mockService.AssertExpectations(t)
+}
+
+func TestDeleteUserURLsHandler(t *testing.T) {
+	ctx := context.WithValue(context.Background(), utils.UserIDKey, "test-user")
+	mockService := mocks.NewService(t)
+	mockService.EXPECT().DeleteUserURLs(mock.Anything, "test-user", []string{"abc123"}).Return(nil)
+
+	h := NewHandler(mockService)
+	body := bytes.NewBufferString(`["abc123"]`)
+	req := httptest.NewRequest(http.MethodDelete, "/api/user/urls", body)
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(ctx)
+
+	w := httptest.NewRecorder()
+	h.DeleteUserURLsHandler(w, req)
+
+	assert.Equal(t, http.StatusAccepted, w.Code)
+
+	time.Sleep(100 * time.Millisecond)
+	mockService.AssertExpectations(t)
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/max-marek-projects/shortener/internal/models"
 	"github.com/max-marek-projects/shortener/internal/repository"
 	"github.com/max-marek-projects/shortener/internal/service/mocks"
 
@@ -154,4 +155,54 @@ func TestService_GetOriginalURL(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestService_CreateShortURLsBatch(t *testing.T) {
+	idSize := 8
+	mockStorage := mocks.NewStorage(t)
+	mockStorage.EXPECT().AddBatch(mock.Anything, mock.Anything).Return(nil)
+
+	testService := NewEndpointService(mockStorage, "http://short.com", idSize)
+	req := []models.BatchShortenRequest{
+		{CorrelationID: "1", OriginalURL: "https://example1.com"},
+		{CorrelationID: "2", OriginalURL: "https://example2.com"},
+	}
+	ctx := ctxWithUserID(context.Background(), "user1")
+	resp, err := testService.CreateShortURLsBatch(ctx, req, "https", "short.com")
+	require.NoError(t, err)
+	assert.Len(t, resp, 2)
+	for _, r := range resp {
+		assert.Contains(t, r.ShortURL, "http://short.com/")
+		assert.NotEmpty(t, r.CorrelationID)
+	}
+}
+
+func TestService_GetUserURLs(t *testing.T) {
+	mockStorage := mocks.NewStorage(t)
+	userURLs := []repository.UserURL{
+		{ShortURL: "abc123", OriginalURL: "http://orig.com"},
+	}
+	mockStorage.EXPECT().GetUserURLs(mock.Anything, "user1").Return(userURLs, nil)
+
+	testService := NewEndpointService(mockStorage, "http://short.com", 8)
+	ctx := ctxWithUserID(context.Background(), "user1")
+	result, err := testService.GetUserURLs(ctx, "http", "short.com")
+	require.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "http://short.com/abc123", result[0].ShortURL)
+	assert.Equal(t, "http://orig.com", result[0].OriginalURL)
+}
+
+func TestService_DeleteUserURLs(t *testing.T) {
+	mockStorage := mocks.NewStorage(t)
+	mockStorage.EXPECT().DeleteBatch(mock.Anything, "user1", []string{"abc", "def"}).Return(nil)
+
+	testService := NewEndpointService(mockStorage, "", 8)
+	ctx := context.Background()
+	err := testService.DeleteUserURLs(ctx, "user1", []string{"abc", "def"})
+	assert.NoError(t, err)
+
+	// empty slice
+	err = testService.DeleteUserURLs(ctx, "user1", []string{})
+	assert.NoError(t, err)
 }

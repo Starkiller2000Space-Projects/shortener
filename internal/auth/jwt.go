@@ -34,18 +34,22 @@ func SetUserCookie(w http.ResponseWriter, userID, secretKey string) {
 	})
 }
 
+func extractUserIDFromToken(token string, secretKey string) (string, error) {
+	claims := &Claims{}
+	tokenData, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
+	if err != nil || !tokenData.Valid {
+		return "", err
+	}
+	return claims.UserID, nil
+}
+
 // get user id from request cookie
 func GetUserIDFromRequest(r *http.Request, secretKey string) (string, error) {
 	cookie, err := r.Cookie(CookieName)
 	if err != nil {
 		return "", err
 	}
-	claims := &Claims{}
-	token, err := jwt.ParseWithClaims(cookie.Value, claims, func(t *jwt.Token) (interface{}, error) {
-		return []byte(secretKey), nil
-	})
-	if err != nil || !token.Valid {
-		return "", err
-	}
-	return claims.UserID, nil
+	return extractUserIDFromToken(cookie.Value, secretKey)
 }

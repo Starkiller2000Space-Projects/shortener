@@ -49,8 +49,8 @@ func (m *memStorage) Get(ctx context.Context, id string) (string, error) {
 		return "", ErrNotFound
 	}
 	if info.deleted {
-        return "", ErrGone
-    }
+		return "", ErrGone
+	}
 	return info.originalURL, nil
 }
 
@@ -90,7 +90,7 @@ func (m *memStorage) GetUserURLs(ctx context.Context, userID string) ([]UserURL,
 	defer m.mu.RUnlock() // unlock storage for reading after function completion
 	result := []UserURL{}
 	for id, info := range m.data {
-		if info.userID == userID {
+		if info.userID == userID && !info.deleted {
 			result = append(result, UserURL{
 				ShortURL:    id,
 				OriginalURL: info.originalURL,
