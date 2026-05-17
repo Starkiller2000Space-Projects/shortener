@@ -157,7 +157,7 @@ func (service *endpointService) GetUserURLs(ctx context.Context, scheme, host st
 	}
 	result := make([]models.UserURL, 0, len(rows))
 	for _, row := range rows {
-		// формируем полный short_url
+		// create full short url
 		shortURL, err := service.getUrlFromId(row.ShortURL, scheme, host)
 		if err != nil {
 			return nil, err

@@ -90,6 +90,18 @@ func (fs *fileStorage) add(info Row) error {
 	return nil
 }
 
+// add url into storage and return generated id
+func (fs *fileStorage) Add(ctx context.Context, info Row) error {
+	select {
+	case <-ctx.Done(): // cancel or deadline
+		return ctx.Err()
+	default:
+	}
+	fs.mu.Lock()         // lock storage for writing
+	defer fs.mu.Unlock() // unlock storage for writing after function completion
+	return fs.add(info)
+}
+
 // ping storage and check if it is available
 func (fs *fileStorage) Ping(ctx context.Context) error {
 	if _, err := os.Stat(fs.filePath); err == nil {
@@ -131,4 +143,16 @@ func (fs *fileStorage) addBatch(items []Row) error {
 		return fmt.Errorf("Failed to add batch to file: %w", err)
 	}
 	return nil
+}
+
+// add multiple values as batch with mutex
+func (fs *fileStorage) AddBatch(ctx context.Context, items []Row) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	fs.mu.Lock()         // lock storage for writing
+	defer fs.mu.Unlock() // unlock storage for writing after function completion
+	return fs.addBatch(items)
 }
