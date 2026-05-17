@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -124,7 +125,7 @@ func (h *Handler) DeleteUserURLsHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	go func() {
-		if err := h.service.DeleteUserURLs(r.Context(), userID, shortIDs); err != nil {
+		if err := h.service.DeleteUserURLs(context.Background(), userID, shortIDs); err != nil {
 			logger.Log.Error("Failed to delete user URLs", zap.Error(err))
 		}
 	}()

@@ -2,7 +2,8 @@ build:
 	go build -o bin/shortener ./cmd/shortener
 
 test:
-	go test -cover ./...
+	go test -coverprofile=coverage.out ./...
+	go tool cover -func=coverage.out | grep total
 
 run-client:
 	go run ./cmd/client/main.go
