@@ -8,6 +8,7 @@ import (
 	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/max-marek-projects/shortener/internal/models"
 	"github.com/max-marek-projects/shortener/internal/service"
+	"github.com/max-marek-projects/shortener/internal/utils"
 	"go.uber.org/zap"
 )
 
@@ -100,4 +101,33 @@ func (h *Handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(urls); err != nil {
 		logger.Log.Error("failed to encode response", zap.Error(err))
 	}
+}
+
+func (h *Handler) DeleteUserURLsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+
+	var shortIDs []string
+	if err := json.NewDecoder(r.Body).Decode(&shortIDs); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if len(shortIDs) == 0 {
+		w.WriteHeader(http.StatusAccepted)
+		return
+	}
+	userID, ok := utils.GetUserIDFromContext(r.Context())
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	go func() {
+		if err := h.service.DeleteUserURLs(r.Context(), userID, shortIDs); err != nil {
+			logger.Log.Error("Failed to delete user URLs", zap.Error(err))
+		}
+	}()
+
+	w.WriteHeader(http.StatusAccepted)
 }

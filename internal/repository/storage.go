@@ -17,6 +17,7 @@ type Storage interface {
 	Ping(ctx context.Context) error
 	AddBatch(ctx context.Context, items []Row) error
 	GetUserURLs(ctx context.Context, userID string) ([]UserURL, error)
+	DeleteBatch(ctx context.Context, userID string, shortIDs []string) error
 }
 
 func GetStorage(cfg *config.Config) (Storage, error) {
@@ -51,4 +52,10 @@ type Row struct {
 type UserURL struct {
 	ShortURL    string
 	OriginalURL string
+}
+
+type urlInfo struct {
+	originalURL string
+	userID      string
+	deleted     bool
 }

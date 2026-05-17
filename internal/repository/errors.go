@@ -7,6 +7,7 @@ import (
 
 var ErrNotFound = errors.New("url not found")
 var ErrMutuallyExclusiveFlags = errors.New("Mutually exclusive flags received")
+var ErrGone = errors.New("url has been deleted")
 
 type ErrAlreadyExists struct {
 	ExistingID string

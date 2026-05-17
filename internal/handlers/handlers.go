@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/max-marek-projects/shortener/internal/logger"
+	"github.com/max-marek-projects/shortener/internal/repository"
 	"github.com/max-marek-projects/shortener/internal/service"
 	"go.uber.org/zap"
 )
@@ -27,6 +28,10 @@ func (h *Handler) IdHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
 	url, err := h.service.GetOriginalURL(r.Context(), id)
 	if err != nil {
+		if errors.Is(err, repository.ErrGone) {
+			w.WriteHeader(http.StatusGone)
+			return
+		}
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}

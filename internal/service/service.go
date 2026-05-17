@@ -26,6 +26,7 @@ type Service interface {
 		host string,
 	) ([]models.BatchShortenResponse, error)
 	GetUserURLs(ctx context.Context, scheme, host string) ([]models.UserURL, error)
+	DeleteUserURLs(ctx context.Context, userID string, shortIDs []string) error
 }
 
 func NewEndpointService(storage repository.Storage, showAddr string, idSize int) Service {
@@ -92,6 +93,9 @@ func (service *endpointService) CreateShortURL(ctx context.Context, original, sc
 func (service *endpointService) GetOriginalURL(ctx context.Context, id string) (string, error) {
 	original, err := service.storage.Get(ctx, id)
 	if err != nil {
+		if errors.Is(err, repository.ErrGone) {
+			return "", err
+		}
 		logger.Log.Error("Error retrieving data from storage", zap.String("message", err.Error()))
 		return "", fmt.Errorf("Failed to get original url: %w", err)
 	}
@@ -168,4 +172,11 @@ func (service *endpointService) GetUserURLs(ctx context.Context, scheme, host st
 		})
 	}
 	return result, nil
+}
+
+func (service *endpointService) DeleteUserURLs(ctx context.Context, userID string, shortIDs []string) error {
+	if len(shortIDs) == 0 {
+		return nil
+	}
+	return service.storage.DeleteBatch(ctx, userID, shortIDs)
 }
