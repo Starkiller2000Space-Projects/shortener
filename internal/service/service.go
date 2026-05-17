@@ -4,7 +4,9 @@ import (
 	"context"
 	"strings"
 
+	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/max-marek-projects/shortener/internal/repository"
+	"go.uber.org/zap"
 )
 
 type EndpointService interface {
@@ -25,10 +27,12 @@ func (service *endpointService) CreateShortURL(ctx context.Context, original, sc
 	}
 	original = strings.TrimSpace(original)
 	if original == "" {
+		logger.Log.Error("Url is Empty")
 		return "", ErrorEmptyUrl
 	}
 	shortID, err := service.storage.Add(ctx, original)
 	if err != nil {
+		logger.Log.Error("Url is Empty", zap.String("message", err.Error()))
 		return "", err
 	}
 	var shortURL string
@@ -44,6 +48,7 @@ func (service *endpointService) CreateShortURL(ctx context.Context, original, sc
 func (service *endpointService) GetOriginalURL(ctx context.Context, short string) (string, error) {
 	original, err := service.storage.Get(ctx, short)
 	if err != nil {
+		logger.Log.Error("Error retrieving data from storage", zap.String("message", err.Error()))
 		return "", err
 	}
 	return original, nil
