@@ -24,19 +24,14 @@ func AuthMiddleware(secretKey string) func(http.Handler) http.Handler {
 						http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 						return
 					}
+					// user created successfully, proceed
 				} else {
 					// invalid cookie -> 401 Unauthorized
 					http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 					return
 				}
 			}
-			if err != nil || userID == "" {
-				// cookie is not valid
-				http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
-				return
-			}
-			// cookie is valid
-
+			// now err is nil, userID is valid
 			ctx := utils.SetUserIDToContext(r.Context(), userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
