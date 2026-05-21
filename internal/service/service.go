@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate mockery --name=Service --output=../handlers/mocks --with-expecter
+//go:generate mockery --name=Service --output=../handlers/mocks --filename=service_mock.go --with-expecter
 type Service interface {
 	CreateShortURL(ctx context.Context, original, scheme, host string) (string, error)
 	GetOriginalURL(ctx context.Context, short string) (string, error)
@@ -59,14 +59,14 @@ func (service *endpointService) getUrlFromId(id, scheme, host string) (string, e
 
 // add url into storage and return generated id
 func (service *endpointService) CreateShortURL(ctx context.Context, original, scheme, host string) (string, error) {
+	userID, ok := utils.GetUserIDFromContext(ctx)
+	if !ok {
+		return "", fmt.Errorf("userID not found in context")
+	}
 	original = strings.TrimSpace(original)
 	if original == "" {
 		logger.Log.Error("Url is Empty")
 		return "", ErrorEmptyUrl
-	}
-	userID, ok := utils.GetUserIDFromContext(ctx)
-	if !ok {
-		return "", fmt.Errorf("userID not found in context")
 	}
 	id := utils.GenerateId(service.idSize)
 	err := service.storage.Add(ctx, repository.Row{ID: id, OriginalURL: original, UserID: userID})

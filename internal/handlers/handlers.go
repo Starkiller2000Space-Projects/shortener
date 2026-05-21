@@ -14,12 +14,13 @@ import (
 
 // Endpoints handler
 type Handler struct {
-	service service.Service
+	service            service.Service
+	maxParallelWorkers int
 }
 
 // Get new endpoints handler
-func NewHandler(service service.Service) *Handler {
-	return &Handler{service: service}
+func NewHandler(service service.Service, maxParallelWorkers int) *Handler {
+	return &Handler{service: service, maxParallelWorkers: maxParallelWorkers}
 }
 
 // handle passed id GET `/{id}`

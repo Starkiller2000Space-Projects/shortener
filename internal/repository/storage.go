@@ -10,7 +10,7 @@ import (
 
 // Common storage interface
 //
-//go:generate mockery --name=Storage --output=../service/mocks --with-expecter
+//go:generate mockery --name=Storage --output=../service/mocks --filename=storage_mock.go --with-expecter
 type Storage interface {
 	Add(ctx context.Context, info Row) error
 	Get(ctx context.Context, id string) (string, error)

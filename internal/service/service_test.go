@@ -17,10 +17,6 @@ import (
 	"github.com/max-marek-projects/shortener/internal/utils"
 )
 
-func ctxWithUserID(ctx context.Context, userID string) context.Context {
-	return context.WithValue(ctx, utils.UserIDKey, userID)
-}
-
 func TestService_CreateShortURL(t *testing.T) {
 	idSize := 8
 	mockStorage := mocks.NewStorage(t)
@@ -91,7 +87,7 @@ func TestService_CreateShortURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testService := NewEndpointService(mockStorage, tt.showAddr, idSize)
-			got, err := testService.CreateShortURL(ctxWithUserID(context.Background(), "test-user-id"), tt.originalURL, tt.scheme, tt.host)
+			got, err := testService.CreateShortURL(utils.SetUserIDToContext(context.Background(), "test-user-id"), tt.originalURL, tt.scheme, tt.host)
 			if tt.want.err != nil {
 				assert.Error(t, err)
 				assert.Equal(t, tt.want.err.Error(), err.Error())
@@ -145,7 +141,7 @@ func TestService_GetOriginalURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := testService.GetOriginalURL(ctxWithUserID(context.Background(), "test-user-id"), tt.shortID)
+			got, err := testService.GetOriginalURL(utils.SetUserIDToContext(context.Background(), "test-user-id"), tt.shortID)
 			if tt.want.err != nil {
 				assert.Error(t, err)
 				assert.ErrorIs(t, err, tt.want.err)
@@ -167,7 +163,7 @@ func TestService_CreateShortURLsBatch(t *testing.T) {
 		{CorrelationID: "1", OriginalURL: "https://example1.com"},
 		{CorrelationID: "2", OriginalURL: "https://example2.com"},
 	}
-	ctx := ctxWithUserID(context.Background(), "user1")
+	ctx := utils.SetUserIDToContext(context.Background(), "user1")
 	resp, err := testService.CreateShortURLsBatch(ctx, req, "https", "short.com")
 	require.NoError(t, err)
 	assert.Len(t, resp, 2)
@@ -185,7 +181,7 @@ func TestService_GetUserURLs(t *testing.T) {
 	mockStorage.EXPECT().GetUserURLs(mock.Anything, "user1").Return(userURLs, nil)
 
 	testService := NewEndpointService(mockStorage, "http://short.com", 8)
-	ctx := ctxWithUserID(context.Background(), "user1")
+	ctx := utils.SetUserIDToContext(context.Background(), "user1")
 	result, err := testService.GetUserURLs(ctx, "http", "short.com")
 	require.NoError(t, err)
 	assert.Len(t, result, 1)

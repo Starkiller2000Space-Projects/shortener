@@ -31,7 +31,7 @@ func main() {
 		log.Fatalf("Unable to create storage: %v", err)
 	}
 	service := service.NewEndpointService(store, configData.ShowAddr, configData.IdSize)
-	handler := handlers.NewHandler(service)
+	handler := handlers.NewHandler(service, configData.MaxParallelWorkers)
 	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout, configData.CookieSecret)
 
 	// create separate goroutine

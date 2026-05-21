@@ -21,7 +21,7 @@ import (
 
 // create new router for handlers testing
 func newTestRouter(service *mocks.Service) http.Handler {
-	h := NewHandler(service)
+	h := NewHandler(service, 100)
 
 	r := chi.NewRouter()
 	r.Get("/ping", h.PingHandler)
@@ -188,7 +188,7 @@ func TestPostUrlHandler(t *testing.T) {
 func TestPingHandler(t *testing.T) {
 	mockService := mocks.NewService(t)
 	mockService.EXPECT().Ping(mock.Anything).Return(nil)
-	handler := NewHandler(mockService)
+	handler := NewHandler(mockService, 100)
 
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
 	w := httptest.NewRecorder()

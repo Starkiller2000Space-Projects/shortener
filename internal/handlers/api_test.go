@@ -24,7 +24,7 @@ import (
 
 // create new router for handlers testing
 func newAPITestRouter(service *mocks.Service) http.Handler {
-	h := NewHandler(service)
+	h := NewHandler(service, 100)
 
 	r := chi.NewRouter()
 	r.Post("/shorten", h.ShortenJSONHandler)
@@ -163,7 +163,7 @@ func TestPostBatchShortenHandler(t *testing.T) {
 
 func TestGetUserURLsHandler(t *testing.T) {
 	// Проверяем, что контекст работает
-	ctx := context.WithValue(context.Background(), utils.UserIDKey, "test-user")
+	ctx := utils.SetUserIDToContext(context.Background(), "test-user")
 	userID, ok := utils.GetUserIDFromContext(ctx)
 	require.True(t, ok)
 	require.Equal(t, "test-user", userID)
@@ -172,7 +172,7 @@ func TestGetUserURLsHandler(t *testing.T) {
 	// Используем mock.Anything, чтобы не зависеть от точных значений scheme/host
 	mockService.EXPECT().GetUserURLs(mock.Anything, mock.Anything, mock.Anything).Return([]models.UserURL{}, nil)
 
-	h := NewHandler(mockService)
+	h := NewHandler(mockService, 100)
 	req := httptest.NewRequest(http.MethodGet, "/api/user/urls", nil)
 	req.Header.Set("X-Forwarded-Proto", "http")
 	req.Host = "example.com"
@@ -186,11 +186,11 @@ func TestGetUserURLsHandler(t *testing.T) {
 }
 
 func TestDeleteUserURLsHandler(t *testing.T) {
-	ctx := context.WithValue(context.Background(), utils.UserIDKey, "test-user")
+	ctx := utils.SetUserIDToContext(context.Background(), "test-user")
 	mockService := mocks.NewService(t)
 	mockService.EXPECT().DeleteUserURLs(mock.Anything, "test-user", []string{"abc123"}).Return(nil)
 
-	h := NewHandler(mockService)
+	h := NewHandler(mockService, 100)
 	body := bytes.NewBufferString(`["abc123"]`)
 	req := httptest.NewRequest(http.MethodDelete, "/api/user/urls", body)
 	req.Header.Set("Content-Type", "application/json")

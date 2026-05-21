@@ -11,15 +11,16 @@ import (
 )
 
 type Config struct {
-	RunAddr         string        `env:"SERVER_ADDRESS"`    // address and port to run server
-	ShowAddr        string        `env:"BASE_URL"`          // address and port to show for short urls
-	IdSize          int           `env:"ID_SIZE"`           // short link id length
-	ReadTimeout     time.Duration `env:"READ_TIMEOUT"`      // server read timeout in seconds
-	WriteTimeout    time.Duration `env:"WRITE_TIMEOUT"`     // server write timeout in seconds
-	LoggerLevel     string        `env:"LOGGER_LEVEL"`      // logger level DEBUG / INFO / WARNING / ERROR / FATAL
-	FileStoragePath string        `env:"FILE_STORAGE_PATH"` // file path to save shortened urls to
-	DatabaseUrl     string        `env:"DATABASE_DSN"`      // database connection url
-	CookieSecret    string        `env:"COOKIE_SECRET"`     // secret for cookie signature
+	RunAddr            string        `env:"SERVER_ADDRESS"`       // address and port to run server
+	ShowAddr           string        `env:"BASE_URL"`             // address and port to show for short urls
+	IdSize             int           `env:"ID_SIZE"`              // short link id length
+	ReadTimeout        time.Duration `env:"READ_TIMEOUT"`         // server read timeout in seconds
+	WriteTimeout       time.Duration `env:"WRITE_TIMEOUT"`        // server write timeout in seconds
+	LoggerLevel        string        `env:"LOGGER_LEVEL"`         // logger level DEBUG / INFO / WARNING / ERROR / FATAL
+	FileStoragePath    string        `env:"FILE_STORAGE_PATH"`    // file path to save shortened urls to
+	DatabaseUrl        string        `env:"DATABASE_DSN"`         // database connection url
+	CookieSecret       string        `env:"COOKIE_SECRET"`        // secret for cookie signature
+	MaxParallelWorkers int           `env:"MAX_PARALLEL_WORKERS"` // max amount of parallel workers
 }
 
 // parse all flags from command line
@@ -42,6 +43,7 @@ func LoadConfig() *Config {
 	flag.StringVar(&config.FileStoragePath, "f", "", "file path to save shortened urls to")
 	flag.StringVar(&config.DatabaseUrl, "d", "", "database connection url")
 	flag.StringVar(&config.CookieSecret, "s", "", "cookie signing secret")
+	flag.IntVar(&config.MaxParallelWorkers, "max-parallel-workers", 100, "maximum concurrent parallel operations")
 	// read flags to temp vars
 	var readSec, writeSec int
 	flag.IntVar(&readSec, "r", 30, "server read timeout in seconds")

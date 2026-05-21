@@ -16,7 +16,7 @@ func TestSetAndGetUserID(t *testing.T) {
 	SetUserCookie(w, userID, testSecret)
 
 	cookie := w.Result().Cookies()[0]
-	assert.Equal(t, CookieName, cookie.Name)
+	assert.Equal(t, cookieName, cookie.Name)
 	userID, err := extractUserIDFromToken(cookie.Value, testSecret)
 	assert.NoError(t, err)
 	assert.Equal(t, userID, userID)

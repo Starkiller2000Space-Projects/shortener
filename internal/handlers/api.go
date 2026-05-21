@@ -14,10 +14,6 @@ import (
 )
 
 func (h *Handler) ShortenJSONHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 
 	var requestData models.ShortenRequest
 	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
@@ -105,11 +101,12 @@ func (h *Handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) DeleteUserURLsHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		w.WriteHeader(http.StatusMethodNotAllowed)
+	userID, ok := utils.GetUserIDFromContext(r.Context())
+	if !ok {
+		logger.Log.Error("Missing user id in context")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
-
 	var shortIDs []string
 	if err := json.NewDecoder(r.Body).Decode(&shortIDs); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
@@ -119,12 +116,10 @@ func (h *Handler) DeleteUserURLsHandler(w http.ResponseWriter, r *http.Request) 
 		w.WriteHeader(http.StatusAccepted)
 		return
 	}
-	userID, ok := utils.GetUserIDFromContext(r.Context())
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
+	var sem = make(chan struct{}, h.maxParallelWorkers)
 	go func() {
+		sem <- struct{}{}
+		defer func() { <-sem }()
 		if err := h.service.DeleteUserURLs(context.Background(), userID, shortIDs); err != nil {
 			logger.Log.Error("Failed to delete user URLs", zap.Error(err))
 		}

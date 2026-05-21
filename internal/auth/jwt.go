@@ -7,7 +7,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-const CookieName = "token"
+const cookieName = "token"
 
 type Claims struct {
 	jwt.RegisteredClaims
@@ -15,7 +15,7 @@ type Claims struct {
 }
 
 // create jwt and set it to cookie
-func SetUserCookie(w http.ResponseWriter, userID, secretKey string) {
+func SetUserCookie(w http.ResponseWriter, userID, secretKey string) error {
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
@@ -23,15 +23,19 @@ func SetUserCookie(w http.ResponseWriter, userID, secretKey string) {
 		UserID: userID,
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, _ := token.SignedString([]byte(secretKey))
+	tokenString, err := token.SignedString([]byte(secretKey))
+	if err != nil {
+		return err
+	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     CookieName,
+		Name:     cookieName,
 		Value:    tokenString,
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
+	return nil
 }
 
 func extractUserIDFromToken(token string, secretKey string) (string, error) {
@@ -47,7 +51,7 @@ func extractUserIDFromToken(token string, secretKey string) (string, error) {
 
 // get user id from request cookie
 func GetUserIDFromRequest(r *http.Request, secretKey string) (string, error) {
-	cookie, err := r.Cookie(CookieName)
+	cookie, err := r.Cookie(cookieName)
 	if err != nil {
 		return "", err
 	}

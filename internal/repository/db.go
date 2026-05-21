@@ -92,7 +92,7 @@ func (dbs *dbStorage) Get(ctx context.Context, id string) (string, error) {
 		return "", fmt.Errorf("Failed to get url from storage by id: %w", err)
 	}
 	if is_deleted {
-		return "", ErrGone
+		return "", fmt.Errorf("%w: %s", ErrGone, id)
 	}
 	return val, nil
 }
