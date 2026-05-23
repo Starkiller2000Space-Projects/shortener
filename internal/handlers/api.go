@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -8,14 +9,11 @@ import (
 	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/max-marek-projects/shortener/internal/models"
 	"github.com/max-marek-projects/shortener/internal/service"
+	"github.com/max-marek-projects/shortener/internal/utils"
 	"go.uber.org/zap"
 )
 
 func (h *Handler) ShortenJSONHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 
 	var requestData models.ShortenRequest
 	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
@@ -100,4 +98,32 @@ func (h *Handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(urls); err != nil {
 		logger.Log.Error("failed to encode response", zap.Error(err))
 	}
+}
+
+func (h *Handler) DeleteUserURLsHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := utils.GetUserIDFromContext(r.Context())
+	if !ok {
+		logger.Log.Error("Missing user id in context")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	var shortIDs []string
+	if err := json.NewDecoder(r.Body).Decode(&shortIDs); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+	if len(shortIDs) == 0 {
+		w.WriteHeader(http.StatusAccepted)
+		return
+	}
+	var sem = make(chan struct{}, h.maxParallelWorkers)
+	go func() {
+		sem <- struct{}{}
+		defer func() { <-sem }()
+		if err := h.service.DeleteUserURLs(context.Background(), userID, shortIDs); err != nil {
+			logger.Log.Error("Failed to delete user URLs", zap.Error(err))
+		}
+	}()
+
+	w.WriteHeader(http.StatusAccepted)
 }

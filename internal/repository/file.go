@@ -14,6 +14,7 @@ type fileRecord struct {
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
 	UserID      string `json:"user_id"`
+	Deleted     bool   `json:"deleted"`
 }
 
 type fileStorage struct {
@@ -155,4 +156,33 @@ func (fs *fileStorage) AddBatch(ctx context.Context, items []Row) error {
 	fs.mu.Lock()         // lock storage for writing
 	defer fs.mu.Unlock() // unlock storage for writing after function completion
 	return fs.addBatch(items)
+}
+
+// delete batch by user id and short ids
+func (fs *fileStorage) deleteBatch(userID string, shortIDs []string) error {
+	for _, id := range shortIDs {
+		if info, ok := fs.data[id]; ok && info.userID == userID {
+			info.deleted = true
+			fs.data[id] = info
+		}
+	}
+	if err := fs.save(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// delete batch by user id and short ids with mutex
+func (fs *fileStorage) DeleteBatch(ctx context.Context, userID string, shortIDs []string) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	if len(shortIDs) == 0 {
+		return nil
+	}
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	return fs.deleteBatch(userID, shortIDs)
 }

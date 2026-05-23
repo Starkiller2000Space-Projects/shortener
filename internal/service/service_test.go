@@ -10,15 +10,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/max-marek-projects/shortener/internal/models"
 	"github.com/max-marek-projects/shortener/internal/repository"
 	"github.com/max-marek-projects/shortener/internal/service/mocks"
 
 	"github.com/max-marek-projects/shortener/internal/utils"
 )
-
-func ctxWithUserID(ctx context.Context, userID string) context.Context {
-	return context.WithValue(ctx, utils.UserIDKey, userID)
-}
 
 func TestService_CreateShortURL(t *testing.T) {
 	idSize := 8
@@ -90,7 +87,7 @@ func TestService_CreateShortURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testService := NewEndpointService(mockStorage, tt.showAddr, idSize)
-			got, err := testService.CreateShortURL(ctxWithUserID(context.Background(), "test-user-id"), tt.originalURL, tt.scheme, tt.host)
+			got, err := testService.CreateShortURL(utils.SetUserIDToContext(context.Background(), "test-user-id"), tt.originalURL, tt.scheme, tt.host)
 			if tt.want.err != nil {
 				assert.Error(t, err)
 				assert.Equal(t, tt.want.err.Error(), err.Error())
@@ -144,7 +141,7 @@ func TestService_GetOriginalURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := testService.GetOriginalURL(ctxWithUserID(context.Background(), "test-user-id"), tt.shortID)
+			got, err := testService.GetOriginalURL(utils.SetUserIDToContext(context.Background(), "test-user-id"), tt.shortID)
 			if tt.want.err != nil {
 				assert.Error(t, err)
 				assert.ErrorIs(t, err, tt.want.err)
@@ -154,4 +151,54 @@ func TestService_GetOriginalURL(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestService_CreateShortURLsBatch(t *testing.T) {
+	idSize := 8
+	mockStorage := mocks.NewStorage(t)
+	mockStorage.EXPECT().AddBatch(mock.Anything, mock.Anything).Return(nil)
+
+	testService := NewEndpointService(mockStorage, "http://short.com", idSize)
+	req := []models.BatchShortenRequest{
+		{CorrelationID: "1", OriginalURL: "https://example1.com"},
+		{CorrelationID: "2", OriginalURL: "https://example2.com"},
+	}
+	ctx := utils.SetUserIDToContext(context.Background(), "user1")
+	resp, err := testService.CreateShortURLsBatch(ctx, req, "https", "short.com")
+	require.NoError(t, err)
+	assert.Len(t, resp, 2)
+	for _, r := range resp {
+		assert.Contains(t, r.ShortURL, "http://short.com/")
+		assert.NotEmpty(t, r.CorrelationID)
+	}
+}
+
+func TestService_GetUserURLs(t *testing.T) {
+	mockStorage := mocks.NewStorage(t)
+	userURLs := []repository.UserURL{
+		{ShortURL: "abc123", OriginalURL: "http://orig.com"},
+	}
+	mockStorage.EXPECT().GetUserURLs(mock.Anything, "user1").Return(userURLs, nil)
+
+	testService := NewEndpointService(mockStorage, "http://short.com", 8)
+	ctx := utils.SetUserIDToContext(context.Background(), "user1")
+	result, err := testService.GetUserURLs(ctx, "http", "short.com")
+	require.NoError(t, err)
+	assert.Len(t, result, 1)
+	assert.Equal(t, "http://short.com/abc123", result[0].ShortURL)
+	assert.Equal(t, "http://orig.com", result[0].OriginalURL)
+}
+
+func TestService_DeleteUserURLs(t *testing.T) {
+	mockStorage := mocks.NewStorage(t)
+	mockStorage.EXPECT().DeleteBatch(mock.Anything, "user1", []string{"abc", "def"}).Return(nil)
+
+	testService := NewEndpointService(mockStorage, "", 8)
+	ctx := context.Background()
+	err := testService.DeleteUserURLs(ctx, "user1", []string{"abc", "def"})
+	assert.NoError(t, err)
+
+	// empty slice
+	err = testService.DeleteUserURLs(ctx, "user1", []string{})
+	assert.NoError(t, err)
 }

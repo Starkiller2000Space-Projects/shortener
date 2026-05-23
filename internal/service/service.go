@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate mockery --name=Service --output=../handlers/mocks --with-expecter
+//go:generate mockery --name=Service --output=../handlers/mocks --filename=service_mock.go --with-expecter
 type Service interface {
 	CreateShortURL(ctx context.Context, original, scheme, host string) (string, error)
 	GetOriginalURL(ctx context.Context, short string) (string, error)
@@ -26,6 +26,7 @@ type Service interface {
 		host string,
 	) ([]models.BatchShortenResponse, error)
 	GetUserURLs(ctx context.Context, scheme, host string) ([]models.UserURL, error)
+	DeleteUserURLs(ctx context.Context, userID string, shortIDs []string) error
 }
 
 func NewEndpointService(storage repository.Storage, showAddr string, idSize int) Service {
@@ -58,14 +59,14 @@ func (service *endpointService) getUrlFromId(id, scheme, host string) (string, e
 
 // add url into storage and return generated id
 func (service *endpointService) CreateShortURL(ctx context.Context, original, scheme, host string) (string, error) {
+	userID, ok := utils.GetUserIDFromContext(ctx)
+	if !ok {
+		return "", fmt.Errorf("userID not found in context")
+	}
 	original = strings.TrimSpace(original)
 	if original == "" {
 		logger.Log.Error("Url is Empty")
 		return "", ErrorEmptyUrl
-	}
-	userID, ok := utils.GetUserIDFromContext(ctx)
-	if !ok {
-		return "", fmt.Errorf("userID not found in context")
 	}
 	id := utils.GenerateId(service.idSize)
 	err := service.storage.Add(ctx, repository.Row{ID: id, OriginalURL: original, UserID: userID})
@@ -92,6 +93,9 @@ func (service *endpointService) CreateShortURL(ctx context.Context, original, sc
 func (service *endpointService) GetOriginalURL(ctx context.Context, id string) (string, error) {
 	original, err := service.storage.Get(ctx, id)
 	if err != nil {
+		if errors.Is(err, repository.ErrGone) {
+			return "", err
+		}
 		logger.Log.Error("Error retrieving data from storage", zap.String("message", err.Error()))
 		return "", fmt.Errorf("Failed to get original url: %w", err)
 	}
@@ -168,4 +172,11 @@ func (service *endpointService) GetUserURLs(ctx context.Context, scheme, host st
 		})
 	}
 	return result, nil
+}
+
+func (service *endpointService) DeleteUserURLs(ctx context.Context, userID string, shortIDs []string) error {
+	if len(shortIDs) == 0 {
+		return nil
+	}
+	return service.storage.DeleteBatch(ctx, userID, shortIDs)
 }

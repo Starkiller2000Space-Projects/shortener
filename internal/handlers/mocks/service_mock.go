@@ -142,6 +142,54 @@ func (_c *Service_CreateShortURLsBatch_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
+// DeleteUserURLs provides a mock function with given fields: ctx, userID, shortIDs
+func (_m *Service) DeleteUserURLs(ctx context.Context, userID string, shortIDs []string) error {
+	ret := _m.Called(ctx, userID, shortIDs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteUserURLs")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, []string) error); ok {
+		r0 = rf(ctx, userID, shortIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Service_DeleteUserURLs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteUserURLs'
+type Service_DeleteUserURLs_Call struct {
+	*mock.Call
+}
+
+// DeleteUserURLs is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - shortIDs []string
+func (_e *Service_Expecter) DeleteUserURLs(ctx interface{}, userID interface{}, shortIDs interface{}) *Service_DeleteUserURLs_Call {
+	return &Service_DeleteUserURLs_Call{Call: _e.mock.On("DeleteUserURLs", ctx, userID, shortIDs)}
+}
+
+func (_c *Service_DeleteUserURLs_Call) Run(run func(ctx context.Context, userID string, shortIDs []string)) *Service_DeleteUserURLs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].([]string))
+	})
+	return _c
+}
+
+func (_c *Service_DeleteUserURLs_Call) Return(_a0 error) *Service_DeleteUserURLs_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Service_DeleteUserURLs_Call) RunAndReturn(run func(context.Context, string, []string) error) *Service_DeleteUserURLs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetOriginalURL provides a mock function with given fields: ctx, short
 func (_m *Service) GetOriginalURL(ctx context.Context, short string) (string, error) {
 	ret := _m.Called(ctx, short)

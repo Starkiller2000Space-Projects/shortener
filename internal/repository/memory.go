@@ -10,11 +10,6 @@ type memStorage struct {
 	data map[string]urlInfo
 }
 
-type urlInfo struct {
-	originalURL string
-	userID      string
-}
-
 // Create memory storage
 func NewMemStorage() (*memStorage, error) {
 	return &memStorage{
@@ -52,6 +47,9 @@ func (m *memStorage) Get(ctx context.Context, id string) (string, error) {
 	info, ok := m.data[id]
 	if !ok {
 		return "", ErrNotFound
+	}
+	if info.deleted {
+		return "", ErrGone
 	}
 	return info.originalURL, nil
 }
@@ -92,7 +90,7 @@ func (m *memStorage) GetUserURLs(ctx context.Context, userID string) ([]UserURL,
 	defer m.mu.RUnlock() // unlock storage for reading after function completion
 	result := []UserURL{}
 	for id, info := range m.data {
-		if info.userID == userID {
+		if info.userID == userID && !info.deleted {
 			result = append(result, UserURL{
 				ShortURL:    id,
 				OriginalURL: info.originalURL,
@@ -100,4 +98,30 @@ func (m *memStorage) GetUserURLs(ctx context.Context, userID string) ([]UserURL,
 		}
 	}
 	return result, nil
+}
+
+// delete batch by user id and short ids
+func (m *memStorage) deleteBatch(userID string, shortIDs []string) error {
+	for _, id := range shortIDs {
+		if info, ok := m.data[id]; ok && info.userID == userID {
+			info.deleted = true
+			m.data[id] = info
+		}
+	}
+	return nil
+}
+
+// delete batch by user id and short ids with mutex
+func (m *memStorage) DeleteBatch(ctx context.Context, userID string, shortIDs []string) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	if len(shortIDs) == 0 {
+		return nil
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.deleteBatch(userID, shortIDs)
 }

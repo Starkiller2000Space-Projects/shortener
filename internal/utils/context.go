@@ -1,15 +1,18 @@
 package utils
 
-import (
-	"context"
-)
+import "context"
 
 type contextKey string
 
-const UserIDKey contextKey = "userID"
+const userIDKey contextKey = "userID"
+
+// add userID to context and return new
+func SetUserIDToContext(ctx context.Context, userID string) context.Context {
+	return context.WithValue(ctx, userIDKey, userID)
+}
 
 // get user id from context
 func GetUserIDFromContext(ctx context.Context) (string, bool) {
-	id, ok := ctx.Value(UserIDKey).(string)
-	return id, ok
+	userID, ok := ctx.Value(userIDKey).(string)
+	return userID, ok
 }

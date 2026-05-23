@@ -10,13 +10,14 @@ import (
 
 // Common storage interface
 //
-//go:generate mockery --name=Storage --output=../service/mocks --with-expecter
+//go:generate mockery --name=Storage --output=../service/mocks --filename=storage_mock.go --with-expecter
 type Storage interface {
 	Add(ctx context.Context, info Row) error
 	Get(ctx context.Context, id string) (string, error)
 	Ping(ctx context.Context) error
 	AddBatch(ctx context.Context, items []Row) error
 	GetUserURLs(ctx context.Context, userID string) ([]UserURL, error)
+	DeleteBatch(ctx context.Context, userID string, shortIDs []string) error
 }
 
 func GetStorage(cfg *config.Config) (Storage, error) {
@@ -51,4 +52,10 @@ type Row struct {
 type UserURL struct {
 	ShortURL    string
 	OriginalURL string
+}
+
+type urlInfo struct {
+	originalURL string
+	userID      string
+	deleted     bool
 }

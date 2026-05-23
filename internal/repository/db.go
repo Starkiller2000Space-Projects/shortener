@@ -59,8 +59,8 @@ func (dbs *dbStorage) runMigrations() error {
 func (dbs *dbStorage) Add(ctx context.Context, info Row) error {
 	var existingID string
 	query := `--sql
-		INSERT INTO urls (id, original_url, user_id)
-		VALUES ($1, $2, $3)
+		INSERT INTO urls (id, original_url, user_id, is_deleted)
+		VALUES ($1, $2, $3, false)
 		ON CONFLICT (original_url) DO UPDATE
 		SET original_url = EXCLUDED.original_url
 		RETURNING id
@@ -83,12 +83,16 @@ func (dbs *dbStorage) Get(ctx context.Context, id string) (string, error) {
 	default:
 	}
 	var val string
-	err := dbs.storage.QueryRowContext(ctx, `SELECT original_url FROM urls WHERE id = $1`, id).Scan(&val)
+	var is_deleted bool
+	err := dbs.storage.QueryRowContext(ctx, `SELECT original_url, is_deleted FROM urls WHERE id = $1`, id).Scan(&val, &is_deleted)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrNotFound
 		}
 		return "", fmt.Errorf("Failed to get url from storage by id: %w", err)
+	}
+	if is_deleted {
+		return "", fmt.Errorf("%w: %s", ErrGone, id)
 	}
 	return val, nil
 }
@@ -112,22 +116,23 @@ func (dbs *dbStorage) AddBatch(ctx context.Context, items []Row) error {
 
 func (dbs *dbStorage) buildBatchInsertQuery(items []Row) (string, []any) {
 	var b strings.Builder
-	b.WriteString("INSERT INTO urls(id, original_url) VALUES ")
+	b.WriteString(`INSERT INTO urls(id, original_url, user_id, is_deleted) VALUES `)
 
-	args := make([]any, 0, len(items)*2)
+	args := make([]any, 0, len(items)*3)
 	for i, item := range items {
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		b.WriteString(fmt.Sprintf("($%d, $%d)", i*2+1, i*2+2))
-		args = append(args, item.ID, item.OriginalURL)
+		b.WriteString(fmt.Sprintf("($%d, $%d, $%d, false)", i*3+1, i*3+2, i*3+3))
+		args = append(args, item.ID, item.OriginalURL, item.UserID)
 	}
 
 	return b.String(), args
 }
 
 func (dbs *dbStorage) GetUserURLs(ctx context.Context, userID string) ([]UserURL, error) {
-	rows, err := dbs.storage.QueryContext(ctx, `SELECT id, original_url FROM urls WHERE user_id = $1`, userID)
+	query := `SELECT id, original_url FROM urls WHERE user_id = $1 AND is_deleted = false`
+	rows, err := dbs.storage.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -141,4 +146,16 @@ func (dbs *dbStorage) GetUserURLs(ctx context.Context, userID string) ([]UserURL
 		res = append(res, UserURL{ShortURL: id, OriginalURL: original})
 	}
 	return res, nil
+}
+
+func (dbs *dbStorage) DeleteBatch(ctx context.Context, userID string, shortIDs []string) error {
+	if len(shortIDs) == 0 {
+		return nil
+	}
+	query := `UPDATE urls SET is_deleted = true WHERE user_id = $1 AND id = ANY($2)`
+	_, err := dbs.storage.ExecContext(ctx, query, userID, shortIDs)
+	if err != nil {
+		return fmt.Errorf("failed to delete batch: %w", err)
+	}
+	return nil
 }

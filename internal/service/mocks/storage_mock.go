@@ -116,6 +116,54 @@ func (_c *Storage_AddBatch_Call) RunAndReturn(run func(context.Context, []reposi
 	return _c
 }
 
+// DeleteBatch provides a mock function with given fields: ctx, userID, shortIDs
+func (_m *Storage) DeleteBatch(ctx context.Context, userID string, shortIDs []string) error {
+	ret := _m.Called(ctx, userID, shortIDs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteBatch")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, []string) error); ok {
+		r0 = rf(ctx, userID, shortIDs)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Storage_DeleteBatch_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteBatch'
+type Storage_DeleteBatch_Call struct {
+	*mock.Call
+}
+
+// DeleteBatch is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID string
+//   - shortIDs []string
+func (_e *Storage_Expecter) DeleteBatch(ctx interface{}, userID interface{}, shortIDs interface{}) *Storage_DeleteBatch_Call {
+	return &Storage_DeleteBatch_Call{Call: _e.mock.On("DeleteBatch", ctx, userID, shortIDs)}
+}
+
+func (_c *Storage_DeleteBatch_Call) Run(run func(ctx context.Context, userID string, shortIDs []string)) *Storage_DeleteBatch_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].([]string))
+	})
+	return _c
+}
+
+func (_c *Storage_DeleteBatch_Call) Return(_a0 error) *Storage_DeleteBatch_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Storage_DeleteBatch_Call) RunAndReturn(run func(context.Context, string, []string) error) *Storage_DeleteBatch_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Get provides a mock function with given fields: ctx, id
 func (_m *Storage) Get(ctx context.Context, id string) (string, error) {
 	ret := _m.Called(ctx, id)

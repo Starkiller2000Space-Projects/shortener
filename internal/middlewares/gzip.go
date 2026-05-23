@@ -15,9 +15,10 @@ import (
 
 // writer for compressed data
 type compressWriter struct {
-	w          http.ResponseWriter
-	zw         *gzip.Writer
-	compressed bool
+	w           http.ResponseWriter
+	zw          *gzip.Writer
+	compressed  bool
+	wroteHeader bool
 }
 
 // get new compressed data writer
@@ -32,6 +33,9 @@ func (c *compressWriter) Header() http.Header {
 }
 
 func (c *compressWriter) Write(p []byte) (int, error) {
+	if !c.wroteHeader {
+		c.WriteHeader(http.StatusOK)
+	}
 	if c.compressed {
 		return c.zw.Write(p)
 	}
@@ -39,6 +43,10 @@ func (c *compressWriter) Write(p []byte) (int, error) {
 }
 
 func (c *compressWriter) WriteHeader(statusCode int) {
+	if c.wroteHeader {
+		return
+	}
+	c.wroteHeader = true
 	mediaType, _, err := mime.ParseMediaType(c.w.Header().Get("Content-Type"))
 	if err == nil && (mediaType == "application/json" || mediaType == "text/html") {
 		c.w.Header().Set("Content-Encoding", "gzip")
