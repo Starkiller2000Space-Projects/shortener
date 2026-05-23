@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -43,8 +44,11 @@ func extractUserIDFromToken(token string, secretKey string) (string, error) {
 	tokenData, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
 		return []byte(secretKey), nil
 	})
-	if err != nil || !tokenData.Valid {
+	if err != nil {
 		return "", err
+	}
+	if !tokenData.Valid {
+		return "", errors.New("invalid token")
 	}
 	return claims.UserID, nil
 }
