@@ -56,20 +56,20 @@ func (dbs *dbStorage) runMigrations() error {
 }
 
 // add url into storage and return generated id
-func (dbs *dbStorage) Add(ctx context.Context, id, url string) error {
+func (dbs *dbStorage) Add(ctx context.Context, info Row) error {
 	var existingID string
-	query := `
-		INSERT INTO urls (id, original_url)
-		VALUES ($1, $2)
+	query := `--sql
+		INSERT INTO urls (id, original_url, user_id)
+		VALUES ($1, $2, $3)
 		ON CONFLICT (original_url) DO UPDATE
 		SET original_url = EXCLUDED.original_url
 		RETURNING id
 	`
-	err := dbs.storage.QueryRowContext(ctx, query, id, url).Scan(&existingID)
+	err := dbs.storage.QueryRowContext(ctx, query, info.ID, info.OriginalURL, info.UserID).Scan(&existingID)
 	if err != nil {
 		return fmt.Errorf("Failed to add url to storage: %w", err)
 	}
-	if existingID != id {
+	if existingID != info.ID {
 		return &ErrAlreadyExists{ExistingID: existingID}
 	}
 	return nil
@@ -83,7 +83,7 @@ func (dbs *dbStorage) Get(ctx context.Context, id string) (string, error) {
 	default:
 	}
 	var val string
-	err := dbs.storage.QueryRowContext(ctx, "SELECT original_url FROM urls WHERE id = $1", id).Scan(&val)
+	err := dbs.storage.QueryRowContext(ctx, `SELECT original_url FROM urls WHERE id = $1`, id).Scan(&val)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrNotFound
@@ -124,4 +124,21 @@ func (dbs *dbStorage) buildBatchInsertQuery(items []Row) (string, []any) {
 	}
 
 	return b.String(), args
+}
+
+func (dbs *dbStorage) GetUserURLs(ctx context.Context, userID string) ([]UserURL, error) {
+	rows, err := dbs.storage.QueryContext(ctx, `SELECT id, original_url FROM urls WHERE user_id = $1`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var res []UserURL
+	for rows.Next() {
+		var id, original string
+		if err := rows.Scan(&id, &original); err != nil {
+			return nil, err
+		}
+		res = append(res, UserURL{ShortURL: id, OriginalURL: original})
+	}
+	return res, nil
 }

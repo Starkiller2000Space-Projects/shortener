@@ -199,6 +199,66 @@ func (_c *Service_GetOriginalURL_Call) RunAndReturn(run func(context.Context, st
 	return _c
 }
 
+// GetUserURLs provides a mock function with given fields: ctx, scheme, host
+func (_m *Service) GetUserURLs(ctx context.Context, scheme string, host string) ([]models.UserURL, error) {
+	ret := _m.Called(ctx, scheme, host)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUserURLs")
+	}
+
+	var r0 []models.UserURL
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) ([]models.UserURL, error)); ok {
+		return rf(ctx, scheme, host)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, string) []models.UserURL); ok {
+		r0 = rf(ctx, scheme, host)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.UserURL)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, string) error); ok {
+		r1 = rf(ctx, scheme, host)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Service_GetUserURLs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUserURLs'
+type Service_GetUserURLs_Call struct {
+	*mock.Call
+}
+
+// GetUserURLs is a helper method to define mock.On call
+//   - ctx context.Context
+//   - scheme string
+//   - host string
+func (_e *Service_Expecter) GetUserURLs(ctx interface{}, scheme interface{}, host interface{}) *Service_GetUserURLs_Call {
+	return &Service_GetUserURLs_Call{Call: _e.mock.On("GetUserURLs", ctx, scheme, host)}
+}
+
+func (_c *Service_GetUserURLs_Call) Run(run func(ctx context.Context, scheme string, host string)) *Service_GetUserURLs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *Service_GetUserURLs_Call) Return(_a0 []models.UserURL, _a1 error) *Service_GetUserURLs_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Service_GetUserURLs_Call) RunAndReturn(run func(context.Context, string, string) ([]models.UserURL, error)) *Service_GetUserURLs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Ping provides a mock function with given fields: ctx
 func (_m *Service) Ping(ctx context.Context) error {
 	ret := _m.Called(ctx)

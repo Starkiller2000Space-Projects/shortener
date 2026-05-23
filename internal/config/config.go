@@ -19,6 +19,7 @@ type Config struct {
 	LoggerLevel     string        `env:"LOGGER_LEVEL"`      // logger level DEBUG / INFO / WARNING / ERROR / FATAL
 	FileStoragePath string        `env:"FILE_STORAGE_PATH"` // file path to save shortened urls to
 	DatabaseUrl     string        `env:"DATABASE_DSN"`      // database connection url
+	CookieSecret    string        `env:"COOKIE_SECRET"`     // secret for cookie signature
 }
 
 // parse all flags from command line
@@ -40,6 +41,7 @@ func LoadConfig() *Config {
 	flag.StringVar(&config.LoggerLevel, "l", "INFO", "logger level")
 	flag.StringVar(&config.FileStoragePath, "f", "", "file path to save shortened urls to")
 	flag.StringVar(&config.DatabaseUrl, "d", "", "database connection url")
+	flag.StringVar(&config.CookieSecret, "s", "", "cookie signing secret")
 	// read flags to temp vars
 	var readSec, writeSec int
 	flag.IntVar(&readSec, "r", 30, "server read timeout in seconds")

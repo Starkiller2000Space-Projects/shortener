@@ -79,3 +79,25 @@ func (h *Handler) PostBatchShortenHandler(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(resp)
 }
+
+func (h *Handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
+	scheme := r.Header.Get("X-Forwarded-Proto")
+	if scheme == "" {
+		scheme = "http"
+	}
+	urls, err := h.service.GetUserURLs(r.Context(), scheme, r.Host)
+	if err != nil {
+		logger.Log.Error("failed to get user URLs", zap.Error(err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	if len(urls) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(urls); err != nil {
+		logger.Log.Error("failed to encode response", zap.Error(err))
+	}
+}

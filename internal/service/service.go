@@ -25,6 +25,7 @@ type Service interface {
 		scheme string,
 		host string,
 	) ([]models.BatchShortenResponse, error)
+	GetUserURLs(ctx context.Context, scheme, host string) ([]models.UserURL, error)
 }
 
 func NewEndpointService(storage repository.Storage, showAddr string, idSize int) Service {
@@ -62,8 +63,12 @@ func (service *endpointService) CreateShortURL(ctx context.Context, original, sc
 		logger.Log.Error("Url is Empty")
 		return "", ErrorEmptyUrl
 	}
+	userID, ok := utils.GetUserIDFromContext(ctx)
+	if !ok {
+		return "", fmt.Errorf("userID not found in context")
+	}
 	id := utils.GenerateId(service.idSize)
-	err := service.storage.Add(ctx, id, original)
+	err := service.storage.Add(ctx, repository.Row{ID: id, OriginalURL: original, UserID: userID})
 	if err != nil {
 		var existsErr *repository.ErrAlreadyExists
 		if errors.As(err, &existsErr) {
@@ -139,4 +144,28 @@ func (service *endpointService) CreateShortURLsBatch(
 	}
 
 	return resp, nil
+}
+
+func (service *endpointService) GetUserURLs(ctx context.Context, scheme, host string) ([]models.UserURL, error) {
+	userID, ok := utils.GetUserIDFromContext(ctx)
+	if !ok {
+		return nil, fmt.Errorf("userID not found in context")
+	}
+	rows, err := service.storage.GetUserURLs(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]models.UserURL, 0, len(rows))
+	for _, row := range rows {
+		// create full short url
+		shortURL, err := service.getUrlFromId(row.ShortURL, scheme, host)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, models.UserURL{
+			ShortURL:    shortURL,
+			OriginalURL: row.OriginalURL,
+		})
+	}
+	return result, nil
 }

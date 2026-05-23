@@ -32,7 +32,7 @@ func main() {
 	}
 	service := service.NewEndpointService(store, configData.ShowAddr, configData.IdSize)
 	handler := handlers.NewHandler(service)
-	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout)
+	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout, configData.CookieSecret)
 
 	// create separate goroutine
 	serverErr := make(chan error, 1)
