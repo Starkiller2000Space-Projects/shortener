@@ -21,6 +21,8 @@ type Config struct {
 	DatabaseUrl        string        `env:"DATABASE_DSN"`         // database connection url
 	CookieSecret       string        `env:"COOKIE_SECRET"`        // secret for cookie signature
 	MaxParallelWorkers int           `env:"MAX_PARALLEL_WORKERS"` // max amount of parallel workers
+	AuditFile          string        `env:"AUDIT_FILE"`           // path to audit file
+	AuditURL           string        `env:"AUDIT_URL"`            // audit service url
 }
 
 // parse all flags from command line
@@ -44,6 +46,8 @@ func LoadConfig() *Config {
 	flag.StringVar(&config.DatabaseUrl, "d", "", "database connection url")
 	flag.StringVar(&config.CookieSecret, "s", "", "cookie signing secret")
 	flag.IntVar(&config.MaxParallelWorkers, "max-parallel-workers", 100, "maximum concurrent parallel operations")
+	flag.StringVar(&config.AuditFile, "audit-file", "", "path to audit file")
+	flag.StringVar(&config.AuditURL, "audit-url", "", "audit service url")
 	// read flags to temp vars
 	var readSec, writeSec int
 	flag.IntVar(&readSec, "r", 30, "server read timeout in seconds")

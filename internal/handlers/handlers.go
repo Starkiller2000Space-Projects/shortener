@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/max-marek-projects/shortener/internal/logger"
+	"github.com/max-marek-projects/shortener/internal/models"
 	"github.com/max-marek-projects/shortener/internal/repository"
 	"github.com/max-marek-projects/shortener/internal/service"
 	"go.uber.org/zap"
@@ -37,6 +39,11 @@ func (h *Handler) IdHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Location", url)
+	ctx := context.WithValue(r.Context(), "audit_data", models.AuditData{
+		Action: models.AuditFollow,
+		URL:    url,
+	})
+	r = r.WithContext(ctx)
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
@@ -47,7 +54,13 @@ func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	shortURL, err := h.service.CreateShortURL(r.Context(), string(body), r.Header.Get("X-Forwarded-Proto"), r.Host)
+	originalUrl := string(body)
+	ctx := context.WithValue(r.Context(), "audit_data", models.AuditData{
+		Action: models.AuditShorten,
+		URL:    originalUrl,
+	})
+	r = r.WithContext(ctx)
+	shortURL, err := h.service.CreateShortURL(r.Context(), originalUrl, r.Header.Get("X-Forwarded-Proto"), r.Host)
 	if err != nil {
 		if errors.Is(err, service.ErrorEmptyUrl) {
 			http.Error(w, "Empty url", http.StatusBadRequest)
