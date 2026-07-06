@@ -71,3 +71,36 @@ func TestAuthMiddleware_InvalidCookie(t *testing.T) {
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 	assert.Equal(t, fmt.Sprintf("%s\n", http.StatusText(http.StatusUnauthorized)), w.Body.String())
 }
+
+func BenchmarkAuthMiddleware_NewUser(b *testing.B) {
+	secret := "test-secret"
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	handler := AuthMiddleware(secret)(next)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+	}
+}
+
+func BenchmarkAuthMiddleware_ExistingUser(b *testing.B) {
+	secret := "test-secret"
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	handler := AuthMiddleware(secret)(next)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	cookie := w.Result().Cookies()[0]
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		req2 := httptest.NewRequest(http.MethodGet, "/", nil)
+		req2.AddCookie(cookie)
+		w2 := httptest.NewRecorder()
+		handler.ServeHTTP(w2, req2)
+	}
+}

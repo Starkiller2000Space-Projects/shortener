@@ -26,3 +26,9 @@ func TestGenerateUserID(t *testing.T) {
 	assert.NotEmpty(t, id1)
 	assert.NotEqual(t, id1, id2, "user IDs should be unique")
 }
+
+func BenchmarkGenerateUserID(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		GenerateUserID()
+	}
+}

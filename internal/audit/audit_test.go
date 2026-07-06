@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -62,4 +63,15 @@ func TestAudit_RegisterAndNotifyAll(t *testing.T) {
 	event := models.AuditEvent{UserID: "test", Action: "login"}
 	a.NotifyAll(event)
 	time.Sleep(100 * time.Millisecond)
+}
+
+func BenchmarkFileAuditNotify(b *testing.B) {
+	tmpFile, _ := os.CreateTemp("", "audit_*.log")
+	defer os.Remove(tmpFile.Name())
+	observer := NewFileAuditObserver(tmpFile.Name())
+	event := models.AuditEvent{Timestamp: 123, Action: "shorten", UserID: "user", URL: "http://example.com"}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		observer.Notify(event)
+	}
 }
