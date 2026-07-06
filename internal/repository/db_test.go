@@ -1,20 +1,42 @@
 package repository
 
 import (
-	"cmp"
 	"context"
-	"slices"
+	"os"
 	"testing"
 
+	"github.com/joho/godotenv"
+	"github.com/max-marek-projects/shortener/internal/config/db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// test addition to memory storage
-func TestMemStorage_Add(t *testing.T) {
-	// create storage
-	store, err := NewMemStorage()
+// create test db in container
+func setupTestDB(t *testing.T) (*dbStorage, *db.DBConf, func()) {
+	err := godotenv.Load("../../.env")
 	require.NoError(t, err)
+	dsn := os.Getenv("TEST_DATABASE_DSN")
+	if dsn == "" {
+		t.Skip("TEST_DATABASE_DSN not set, skipping integration test")
+	}
+	config := db.NewDbConf(dsn)
+	config.MigrationsPath = "../../migrations"
+	storage, err := NewDBStorage(config)
+	require.NoError(t, err)
+	cleanup := func() {
+		_, err := storage.storage.ExecContext(context.Background(), "TRUNCATE urls")
+		if err != nil {
+			t.Logf("failed to truncate: %v", err)
+		}
+	}
+	return storage, config, cleanup
+}
+
+// test addition to db storage
+func TestDBStorage_Add(t *testing.T) {
+	// create storage
+	store, dbConf, cleanup := setupTestDB(t)
+	defer cleanup()
 	ctx := context.Background()
 	// check id is not present in storage
 	testId := "id1"
@@ -30,37 +52,30 @@ func TestMemStorage_Add(t *testing.T) {
 	got, err = store.Get(ctx, testId)
 	assert.NoError(t, err)
 	assert.Equal(t, testUrl, got)
-	// check new storage creation deletes data
-	store2, err := NewMemStorage()
+	// check new storage creation leaves data in storage
+	store2, err := NewDBStorage(dbConf)
 	require.NoError(t, err)
 	got2, err := store2.Get(ctx, testId)
-	assert.Error(t, err)
-	assert.Equal(t, "", got2)
-
-	// test cancel request
-	ctx, cancel := context.WithCancel(ctx)
-	cancel()
-	err = store.Add(ctx, row)
-	assert.ErrorIs(t, err, context.Canceled)
-	got, err = store.Get(ctx, testId)
-	assert.Equal(t, "", got)
-	assert.ErrorIs(t, err, context.Canceled)
+	assert.NoError(t, err)
+	assert.Equal(t, testUrl, got2)
 }
 
-// test ping memory storage
-func TestMemStorage_Ping(t *testing.T) {
-	store, err := NewMemStorage()
-	require.NoError(t, err)
+// test ping for file storage
+func TestDBStorage_Ping(t *testing.T) {
+	// create storage
+	store, _, cleanup := setupTestDB(t)
+	defer cleanup()
 	ctx := context.Background()
-	err = store.Ping(ctx)
+	// ping
+	err := store.Ping(ctx)
 	assert.NoError(t, err)
 }
 
-// test batch addition to memory storage
-func TestMemStorage_AddBatch(t *testing.T) {
+// test batch addition to file storage
+func TestDBStorage_AddBatch(t *testing.T) {
 	// create storage
-	store, err := NewMemStorage()
-	require.NoError(t, err)
+	store, dbConf, cleanup := setupTestDB(t)
+	defer cleanup()
 	ctx := context.Background()
 	// check id is not present in storage
 	testRows := []Row{
@@ -76,7 +91,7 @@ func TestMemStorage_AddBatch(t *testing.T) {
 		assert.Equal(t, "", got)
 	}
 	// add test ids
-	err = store.AddBatch(ctx, testRows)
+	err := store.AddBatch(ctx, testRows)
 	assert.NoError(t, err)
 	// test ids were added to storage
 	for _, row := range testRows {
@@ -84,27 +99,21 @@ func TestMemStorage_AddBatch(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, row.OriginalURL, got)
 	}
-	// check new storage creation deletes data from storage
-	store2, err := NewMemStorage()
+	// check new storage creation leaves data in storage
+	store2, err := NewDBStorage(dbConf)
 	require.NoError(t, err)
 	for _, row := range testRows {
 		got, err := store2.Get(ctx, row.ID)
-		assert.Error(t, err)
-		assert.Equal(t, "", got)
+		assert.NoError(t, err)
+		assert.Equal(t, row.OriginalURL, got)
 	}
-
-	// test cancel request
-	ctx, cancel := context.WithCancel(ctx)
-	cancel()
-	err = store.AddBatch(ctx, testRows)
-	assert.ErrorIs(t, err, context.Canceled)
 }
 
 // test get user urls
-func TestMemStorage_GetUserUrls(t *testing.T) {
+func TestDBStorage_GetUserUrls(t *testing.T) {
 	// create storage
-	store, err := NewMemStorage()
-	require.NoError(t, err)
+	store, _, cleanup := setupTestDB(t)
+	defer cleanup()
 	ctx := context.Background()
 	// check id is not present in storage
 	userId1 := "u1"
@@ -116,7 +125,7 @@ func TestMemStorage_GetUserUrls(t *testing.T) {
 		{ID: "id5", OriginalURL: "http://example5.com", UserID: "u2"},
 	}
 	// add test ids
-	err = store.AddBatch(ctx, testRows)
+	err := store.AddBatch(ctx, testRows)
 	require.NoError(t, err)
 	// test get user urls
 	expected := []UserURL{
@@ -126,26 +135,14 @@ func TestMemStorage_GetUserUrls(t *testing.T) {
 	}
 	userUrls, err := store.GetUserURLs(ctx, userId1)
 	assert.NoError(t, err)
-	slices.SortFunc(userUrls, func(item1, item2 UserURL) int { return cmp.Compare(item1.ShortURL, item2.ShortURL) })
-	assert.Equal(
-		t,
-		expected,
-		userUrls,
-	)
-
-	// test cancel request
-	ctx, cancel := context.WithCancel(ctx)
-	cancel()
-	userUrls, err = store.GetUserURLs(ctx, userId1)
-	assert.Nil(t, userUrls)
-	assert.ErrorIs(t, err, context.Canceled)
+	assert.Equal(t, expected, userUrls)
 }
 
-// test delete batch from memory storage
-func TestMemStorage_DeleteBatch(t *testing.T) {
+// test delete batch from storage
+func TestDBStorage_DeleteBatch(t *testing.T) {
 	// create storage
-	store, err := NewMemStorage()
-	require.NoError(t, err)
+	store, _, cleanup := setupTestDB(t)
+	defer cleanup()
 	ctx := context.Background()
 	// check id is not present in storage
 	testRows := []Row{
@@ -156,10 +153,8 @@ func TestMemStorage_DeleteBatch(t *testing.T) {
 		{ID: "id5", OriginalURL: "http://example5.com", UserID: "u5"},
 	}
 	// add test ids
-	err = store.AddBatch(ctx, testRows)
+	err := store.AddBatch(ctx, testRows)
 	require.NoError(t, err)
-	// test deleting nothing
-	assert.NoError(t, store.DeleteBatch(ctx, "u1", []string{}))
 	// delete batch
 	err = store.DeleteBatch(ctx, "u1", []string{"id1", "id2"})
 	assert.NoError(t, err)
@@ -171,10 +166,4 @@ func TestMemStorage_DeleteBatch(t *testing.T) {
 	got, err = store.Get(ctx, "id2")
 	assert.NoError(t, err)
 	assert.Equal(t, "http://example2.com", got)
-
-	// test cancel request
-	ctx, cancel := context.WithCancel(ctx)
-	cancel()
-	err = store.DeleteBatch(ctx, "u1", []string{"id1", "id2"})
-	assert.ErrorIs(t, err, context.Canceled)
 }

@@ -13,8 +13,8 @@ type AuditData struct {
 }
 
 type AuditEvent struct {
-	Ts     int64       `json:"ts"`
-	Action AuditAction `json:"action"`
-	UserID string      `json:"user_id"`
-	URL    string      `json:"url"`
+	Timestamp int64       `json:"ts"`
+	Action    AuditAction `json:"action"`
+	UserID    string      `json:"user_id"`
+	URL       string      `json:"url"`
 }

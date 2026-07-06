@@ -33,8 +33,8 @@ func main() {
 	}
 	service := service.NewEndpointService(store, configData.ShowAddr, configData.IdSize)
 	handler := handlers.NewHandler(service, configData.MaxParallelWorkers)
-	audit.InitAudit(configData.AuditFile, configData.AuditURL)
-	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout, configData.CookieSecret)
+	auditor := audit.InitAudit(configData.AuditFile, configData.AuditURL)
+	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout, auditor, configData.CookieSecret)
 
 	// create separate goroutine
 	serverErr := make(chan error, 1)

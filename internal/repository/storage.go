@@ -5,12 +5,13 @@ import (
 	"fmt"
 
 	"github.com/max-marek-projects/shortener/internal/config"
+	"github.com/max-marek-projects/shortener/internal/config/db"
 	"github.com/max-marek-projects/shortener/internal/logger"
 )
 
 // Common storage interface
 //
-//go:generate mockery --name=Storage --output=../service/mocks --filename=storage_mock.go --with-expecter
+//go:generate mockery --name=Storage --output=../service  --outpkg=service --filename=mock_storage_test.go --with-expecter --structname=MockStorage
 type Storage interface {
 	Add(ctx context.Context, info Row) error
 	Get(ctx context.Context, id string) (string, error)
@@ -29,7 +30,7 @@ func GetStorage(cfg *config.Config) (Storage, error) {
 	switch {
 	case cfg.DatabaseUrl != "":
 		logger.Log.Info("Initializing database storage")
-		storage, err = NewDBStorage(cfg.DatabaseUrl)
+		storage, err = NewDBStorage(db.NewDbConf(cfg.DatabaseUrl))
 	case cfg.FileStoragePath != "":
 		logger.Log.Info("Initializing file storage")
 		storage, err = NewFileStorage(cfg.FileStoragePath)

@@ -6,10 +6,11 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/max-marek-projects/shortener/internal/audit"
 	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/max-marek-projects/shortener/internal/models"
+	"github.com/max-marek-projects/shortener/internal/requests"
 	"github.com/max-marek-projects/shortener/internal/service"
-	"github.com/max-marek-projects/shortener/internal/utils"
 	"go.uber.org/zap"
 )
 
@@ -21,11 +22,14 @@ func (h *Handler) ShortenJSONHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
-	ctx := context.WithValue(r.Context(), "audit_data", models.AuditData{
-		Action: models.AuditShorten,
-		URL:    requestData.URL,
-	})
-	r = r.WithContext(ctx)
+	auditData, ok := r.Context().Value(audit.AuditKey).(*models.AuditData)
+	if !ok {
+		logger.Log.Error("No audit data in context")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	auditData.Action = models.AuditShorten
+	auditData.URL = requestData.URL
 	shortURL, err := h.service.CreateShortURL(r.Context(), requestData.URL, r.Header.Get("X-Forwarded-Proto"), r.Host)
 	if err != nil {
 		if errors.Is(err, service.ErrorEmptyUrl) {
@@ -105,8 +109,9 @@ func (h *Handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// delete user urls
 func (h *Handler) DeleteUserURLsHandler(w http.ResponseWriter, r *http.Request) {
-	userID, ok := utils.GetUserIDFromContext(r.Context())
+	userID, ok := requests.GetUserIDFromContext(r.Context())
 	if !ok {
 		logger.Log.Error("Missing user id in context")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

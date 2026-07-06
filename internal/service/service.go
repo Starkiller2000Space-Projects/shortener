@@ -10,11 +10,12 @@ import (
 	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/max-marek-projects/shortener/internal/models"
 	"github.com/max-marek-projects/shortener/internal/repository"
+	"github.com/max-marek-projects/shortener/internal/requests"
 	"github.com/max-marek-projects/shortener/internal/utils"
 	"go.uber.org/zap"
 )
 
-//go:generate mockery --name=Service --output=../handlers/mocks --filename=service_mock.go --with-expecter
+//go:generate mockery --name=Service --output=../handlers --outpkg=handlers --filename=mock_service_test.go --with-expecter --structname=MockService
 type Service interface {
 	CreateShortURL(ctx context.Context, original, scheme, host string) (string, error)
 	GetOriginalURL(ctx context.Context, short string) (string, error)
@@ -59,7 +60,7 @@ func (service *endpointService) getUrlFromId(id, scheme, host string) (string, e
 
 // add url into storage and return generated id
 func (service *endpointService) CreateShortURL(ctx context.Context, original, scheme, host string) (string, error) {
-	userID, ok := utils.GetUserIDFromContext(ctx)
+	userID, ok := requests.GetUserIDFromContext(ctx)
 	if !ok {
 		return "", fmt.Errorf("userID not found in context")
 	}
@@ -151,7 +152,7 @@ func (service *endpointService) CreateShortURLsBatch(
 }
 
 func (service *endpointService) GetUserURLs(ctx context.Context, scheme, host string) ([]models.UserURL, error) {
-	userID, ok := utils.GetUserIDFromContext(ctx)
+	userID, ok := requests.GetUserIDFromContext(ctx)
 	if !ok {
 		return nil, fmt.Errorf("userID not found in context")
 	}

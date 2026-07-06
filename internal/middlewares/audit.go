@@ -1,27 +1,33 @@
 package middlewares
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	"github.com/max-marek-projects/shortener/internal/audit"
-	"github.com/max-marek-projects/shortener/internal/auth"
+	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/max-marek-projects/shortener/internal/models"
+	"github.com/max-marek-projects/shortener/internal/requests"
 )
 
-func AuditMiddleware(secretKey string) func(http.Handler) http.Handler {
+func AuditMiddleware(auditor audit.Audit) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		auditFn := func(w http.ResponseWriter, r *http.Request) {
-			userID, _ := auth.GetUserIDFromRequest(r, secretKey)
+			userID, _ := requests.GetUserIDFromContext(r.Context())
+			auditData := &models.AuditData{}
+			ctx := context.WithValue(r.Context(), audit.AuditKey, auditData)
+			r = r.WithContext(ctx)
 			next.ServeHTTP(w, r)
-			if data, ok := r.Context().Value("audit_data").(models.AuditData); ok {
+			if auditData.Action != "" {
+				logger.Log.Info("Received audit data")
 				event := models.AuditEvent{
-					Ts:     time.Now().Unix(),
-					Action: data.Action,
-					UserID: userID,
-					URL:    data.URL,
+					Timestamp: time.Now().Unix(),
+					Action:    auditData.Action,
+					UserID:    userID,
+					URL:       auditData.URL,
 				}
-				audit.Audit.NotifyAll(event)
+				auditor.NotifyAll(event)
 			}
 		}
 		return http.HandlerFunc(auditFn)

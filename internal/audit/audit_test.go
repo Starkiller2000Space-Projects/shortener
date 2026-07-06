@@ -1,0 +1,65 @@
+package audit
+
+import (
+	"testing"
+	"time"
+
+	"github.com/max-marek-projects/shortener/internal/models"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+)
+
+// test audit initialization
+func TestInitAudit(t *testing.T) {
+	tests := []struct {
+		name     string
+		filePath string
+		url      string
+		wantFile bool
+		wantHttp bool
+	}{
+		{"no observers", "", "", false, false},
+		{"file only", "/tmp/audit.log", "", true, false},
+		{"http only", "", "http://example.com", false, true},
+		{"both", "/tmp/audit.log", "http://example.com", true, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			auditPtr := InitAudit(tt.filePath, tt.url)
+			wantLen := 0
+			for _, wantValue := range []bool{tt.wantFile, tt.wantHttp} {
+				if wantValue {
+					wantLen++
+				}
+			}
+			assert.Len(t, auditPtr.observers, wantLen)
+			foundFile := false
+			foundHttp := false
+			for _, observer := range auditPtr.observers {
+				if _, ok := observer.(*FileAuditObserver); ok {
+					foundFile = true
+				}
+				if _, ok := observer.(*HTTPAuditObserver); ok {
+					foundHttp = true
+				}
+			}
+			assert.Equal(t, tt.wantFile, foundFile)
+			assert.Equal(t, tt.wantHttp, foundHttp)
+		})
+	}
+}
+
+// Test register and all observers notification
+func TestAudit_RegisterAndNotifyAll(t *testing.T) {
+	a := &audit{observers: []Observer{}}
+	mock1 := NewMockObserver(t)
+	mock1.EXPECT().Notify(mock.Anything).Once()
+	mock2 := NewMockObserver(t)
+	mock2.EXPECT().Notify(mock.Anything).Once()
+	a.Register(mock1)
+	a.Register(mock2)
+	event := models.AuditEvent{UserID: "test", Action: "login"}
+	a.NotifyAll(event)
+	time.Sleep(100 * time.Millisecond)
+}
