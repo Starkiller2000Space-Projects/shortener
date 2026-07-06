@@ -20,7 +20,7 @@ func AuditMiddleware(auditor audit.Audit) func(http.Handler) http.Handler {
 			r = r.WithContext(ctx)
 			next.ServeHTTP(w, r)
 			if auditData.Action != "" {
-				logger.Log.Info("Received audit data")
+				logger.Log.Debug("Received audit data")
 				event := models.AuditEvent{
 					Timestamp: time.Now().Unix(),
 					Action:    auditData.Action,

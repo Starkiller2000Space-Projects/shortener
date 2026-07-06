@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/max-marek-projects/shortener/internal/logger"
@@ -45,17 +44,14 @@ func (service *endpointService) getUrlFromId(id, scheme, host string) (string, e
 	if scheme == "" {
 		scheme = "http"
 	}
-	var shortURL string
-	var err error
+	var base string
 	if service.showAddr != "" {
-		shortURL, err = url.JoinPath(service.showAddr, id)
+		base = service.showAddr
 	} else {
-		shortURL, err = url.JoinPath(scheme+"://"+host, id)
+		base = scheme + "://" + host
 	}
-	if err != nil {
-		return "", fmt.Errorf("Failed to create short url: %w", err)
-	}
-	return shortURL, nil
+	base = strings.TrimRight(base, "/")
+	return base + "/" + id, nil
 }
 
 // add url into storage and return generated id

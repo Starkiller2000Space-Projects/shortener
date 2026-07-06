@@ -30,3 +30,9 @@ load:
 pprof-%:
 	mkdir -p profiles
 	curl -s -o profiles/$*.pprof "http://localhost:6060/debug/pprof/heap"
+
+pprof-watch-%:
+	go tool pprof profiles/$*.pprof
+
+pprof-compare:
+	go tool pprof -top -diff_base=profiles/base.pprof -alloc_space profiles/result.pprof
