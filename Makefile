@@ -12,3 +12,20 @@ run:
 
 mocks:
 	go generate ./...
+
+bench:
+	go test -bench=. -benchmem ./...
+
+CWD := $(CURDIR)
+
+load:
+	docker run --rm -v $(CURDIR)/scripts/wrk/:/data skandyla/wrk -t8 -c100 -d30s -s shorten.lua http://host.docker.internal:8080/ &
+	docker run --rm -v $(CURDIR)/scripts/wrk/:/data skandyla/wrk -t8 -c100 -d30s -s shorten-json.lua http://host.docker.internal:8080/api/shorten &
+	docker run --rm -v $(CURDIR)/scripts/wrk/:/data skandyla/wrk -t8 -c100 -d30s -s batch.lua http://host.docker.internal:8080/api/shorten/batch &
+	docker run --rm -v $(CURDIR)/scripts/wrk/:/data skandyla/wrk -t8 -c100 -d30s http://host.docker.internal:8080/ping &
+	docker run --rm -v $(CURDIR)/scripts/wrk/:/data skandyla/wrk -t8 -c100 -d30s http://host.docker.internal:8080/tbC-l-Xy &  # requires existing id
+	docker run --rm -v $(CURDIR)/scripts/wrk/:/data skandyla/wrk -t8 -c100 -d30s http://host.docker.internal:8080/api/user/urls &
+	wait
+
+base-pprof:
+	curl -s -o profiles/base.pprof "http://localhost:6060/debug/pprof/heap"

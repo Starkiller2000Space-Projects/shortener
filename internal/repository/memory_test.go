@@ -6,6 +6,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/max-marek-projects/shortener/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -45,6 +46,32 @@ func TestMemStorage_Add(t *testing.T) {
 	got, err = store.Get(ctx, testId)
 	assert.Equal(t, "", got)
 	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func BenchmarkMemStorageAdd(b *testing.B) {
+	storage, _ := NewMemStorage()
+	ctx := context.Background()
+	data := Row{
+		ID:          "testid",
+		OriginalURL: "https://example.com/very/long/url/for/testing/performance",
+		UserID:      "user123",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		data.ID = utils.GenerateId(8)
+		_ = storage.Add(ctx, data)
+	}
+}
+
+func BenchmarkMemStorageGet(b *testing.B) {
+	storage, _ := NewMemStorage()
+	ctx := context.Background()
+	id := "existing"
+	_ = storage.Add(ctx, Row{ID: id, OriginalURL: "https://example.com", UserID: "user"})
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = storage.Get(ctx, id)
+	}
 }
 
 // test ping memory storage
@@ -100,6 +127,26 @@ func TestMemStorage_AddBatch(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled)
 }
 
+func BenchmarkMemStorageAddBatch(b *testing.B) {
+	storage, _ := NewMemStorage()
+	ctx := context.Background()
+	items := make([]Row, 10)
+	for i := 0; i < 10; i++ {
+		items[i] = Row{
+			ID:          utils.GenerateId(8),
+			OriginalURL: "https://example.com/" + string(rune(i)),
+			UserID:      "user",
+		}
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for j := range items {
+			items[j].ID = utils.GenerateId(8)
+		}
+		_ = storage.AddBatch(ctx, items)
+	}
+}
+
 // test get user urls
 func TestMemStorage_GetUserUrls(t *testing.T) {
 	// create storage
@@ -141,6 +188,23 @@ func TestMemStorage_GetUserUrls(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled)
 }
 
+func BenchmarkMemStorageGetUserURLs(b *testing.B) {
+	storage, _ := NewMemStorage()
+	ctx := context.Background()
+	userID := "userX"
+	for i := 0; i < 100; i++ {
+		_ = storage.Add(ctx, Row{
+			ID:          utils.GenerateId(8),
+			OriginalURL: "https://example.com/" + string(rune(i)),
+			UserID:      userID,
+		})
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = storage.GetUserURLs(ctx, userID)
+	}
+}
+
 // test delete batch from memory storage
 func TestMemStorage_DeleteBatch(t *testing.T) {
 	// create storage
@@ -177,4 +241,23 @@ func TestMemStorage_DeleteBatch(t *testing.T) {
 	cancel()
 	err = store.DeleteBatch(ctx, "u1", []string{"id1", "id2"})
 	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func BenchmarkMemStorageDeleteBatch(b *testing.B) {
+	storage, _ := NewMemStorage()
+	ctx := context.Background()
+	userID := "userDel"
+	ids := make([]string, 10)
+	for i := 0; i < 10; i++ {
+		id := utils.GenerateId(8)
+		ids[i] = id
+		_ = storage.Add(ctx, Row{ID: id, OriginalURL: "https://example.com", UserID: userID})
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = storage.DeleteBatch(ctx, userID, ids)
+		for _, id := range ids {
+			_ = storage.Add(ctx, Row{ID: id, OriginalURL: "https://example.com", UserID: userID})
+		}
+	}
 }

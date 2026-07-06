@@ -1,15 +1,20 @@
 package handlers
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 
+	"github.com/max-marek-projects/shortener/internal/audit"
 	"github.com/max-marek-projects/shortener/internal/models"
+	"github.com/max-marek-projects/shortener/internal/requests"
 	"github.com/max-marek-projects/shortener/internal/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -147,6 +152,27 @@ func TestShortenJSONHandler(t *testing.T) {
 	}
 }
 
+func BenchmarkShortenJSONHandler(b *testing.B) {
+	mockSvc := NewMockService(b)
+	mockSvc.EXPECT().
+		CreateShortURL(mock.Anything, "https://example.com", mock.Anything, mock.Anything).
+		Return("http://localhost/abc123", nil)
+
+	handler := NewHandler(mockSvc, 10)
+	reqData := models.ShortenRequest{URL: "https://example.com"}
+	jsonBody, _ := json.Marshal(reqData)
+	req := httptest.NewRequest(http.MethodPost, "/api/shorten", io.NopCloser(bytes.NewReader(jsonBody)))
+	req = req.WithContext(context.WithValue(requests.SetUserIDToContext(req.Context(), "user123"), audit.AuditKey, &models.AuditData{}))
+	w := httptest.NewRecorder()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		req.Body = io.NopCloser(bytes.NewReader(jsonBody))
+		handler.ShortenJSONHandler(w, req)
+		w.Flush()
+	}
+}
+
 // test adding data as batch
 func TestPostBatchShortenHandler(t *testing.T) {
 	fixedID := "test1234"
@@ -268,6 +294,34 @@ func TestPostBatchShortenHandler(t *testing.T) {
 	}
 }
 
+func BenchmarkPostBatchShortenHandler(b *testing.B) {
+	mockSvc := NewMockService(b)
+	reqBatch := []models.BatchShortenRequest{
+		{CorrelationID: "1", OriginalURL: "https://example1.com"},
+		{CorrelationID: "2", OriginalURL: "https://example2.com"},
+	}
+	respBatch := []models.BatchShortenResponse{
+		{CorrelationID: "1", ShortURL: "http://localhost/abc1"},
+		{CorrelationID: "2", ShortURL: "http://localhost/abc2"},
+	}
+	mockSvc.EXPECT().
+		CreateShortURLsBatch(mock.Anything, reqBatch, mock.Anything, mock.Anything).
+		Return(respBatch, nil)
+
+	handler := NewHandler(mockSvc, 10)
+	jsonBody, _ := json.Marshal(reqBatch)
+	req := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", io.NopCloser(bytes.NewReader(jsonBody)))
+	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
+	w := httptest.NewRecorder()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		req.Body = io.NopCloser(bytes.NewReader(jsonBody))
+		handler.PostBatchShortenHandler(w, req)
+		w.Flush()
+	}
+}
+
 func TestGetUserURLsHandler(t *testing.T) {
 	type want struct {
 		code        int
@@ -360,6 +414,28 @@ func TestGetUserURLsHandler(t *testing.T) {
 				require.NoError(t, err)
 			}
 		})
+	}
+}
+
+func BenchmarkGetUserURLsHandler(b *testing.B) {
+	mockSvc := NewMockService(b)
+	userURLs := []models.UserURL{
+		{ShortURL: "http://localhost/abc1", OriginalURL: "https://example1.com"},
+		{ShortURL: "http://localhost/abc2", OriginalURL: "https://example2.com"},
+	}
+	mockSvc.EXPECT().
+		GetUserURLs(mock.Anything, mock.Anything, mock.Anything).
+		Return(userURLs, nil)
+
+	handler := NewHandler(mockSvc, 10)
+	req := httptest.NewRequest(http.MethodGet, "/api/user/urls", nil)
+	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
+	w := httptest.NewRecorder()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		handler.GetUserURLsHandler(w, req)
+		w.Flush()
 	}
 }
 
@@ -457,5 +533,24 @@ func TestDeleteUserURLsHandler(t *testing.T) {
 			resp, _ := testRequest(t, ts, test.method, "/api/user/urls", test.request)
 			assert.Equal(t, test.want.code, resp.StatusCode)
 		})
+	}
+}
+
+func BenchmarkDeleteUserURLsHandler(b *testing.B) {
+	mockSvc := NewMockService(b)
+	mockSvc.On("DeleteUserURLs", mock.Anything, "user123", []string{"abc1", "abc2"}).Return(nil).Maybe()
+
+	handler := NewHandler(mockSvc, 10)
+	shortIDs := []string{"abc1", "abc2"}
+	jsonBody, _ := json.Marshal(shortIDs)
+	req := httptest.NewRequest(http.MethodDelete, "/api/user/urls", io.NopCloser(bytes.NewReader(jsonBody)))
+	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
+	w := httptest.NewRecorder()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		req.Body = io.NopCloser(bytes.NewReader(jsonBody))
+		handler.DeleteUserURLsHandler(w, req)
+		w.Flush()
 	}
 }

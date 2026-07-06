@@ -2,17 +2,23 @@ package repository
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
 	"github.com/joho/godotenv"
 	"github.com/max-marek-projects/shortener/internal/config/db"
+	"github.com/max-marek-projects/shortener/internal/utils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 // create test db in container
-func setupTestDB(t *testing.T) (*dbStorage, *db.DBConf, func()) {
+func setupTestDB(t interface {
+	mock.TestingT
+	Skip(...any)
+}) (*dbStorage, *db.DBConf, func()) {
 	err := godotenv.Load("../../.env")
 	if err != nil && !os.IsNotExist(err) {
 		require.NoError(t, err)
@@ -60,6 +66,48 @@ func TestDBStorage_Add(t *testing.T) {
 	got2, err := store2.Get(ctx, testId)
 	assert.NoError(t, err)
 	assert.Equal(t, testUrl, got2)
+}
+
+func BenchmarkDBStorageAdd(b *testing.B) {
+	storage, _, cleanup := setupTestDB(b)
+	defer cleanup()
+
+	ctx := context.Background()
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		id := utils.GenerateId(8)
+		row := Row{
+			ID:          id,
+			OriginalURL: "https://example.com/" + id,
+			UserID:      "user",
+		}
+		err := storage.Add(ctx, row)
+		if err != nil {
+			b.Fatalf("Add failed: %v", err)
+		}
+	}
+}
+
+func BenchmarkDBStorageGet(b *testing.B) {
+	storage, _, cleanup := setupTestDB(b)
+	defer cleanup()
+
+	ctx := context.Background()
+	id := "fixedID"
+	row := Row{ID: id, OriginalURL: "https://example.com/fixed", UserID: "user"}
+	err := storage.Add(ctx, row)
+	if err != nil {
+		b.Fatalf("failed to add initial row: %v", err)
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := storage.Get(ctx, id)
+		if err != nil {
+			b.Fatalf("Get failed: %v", err)
+		}
+	}
 }
 
 // test ping for file storage
@@ -111,6 +159,28 @@ func TestDBStorage_AddBatch(t *testing.T) {
 	}
 }
 
+func BenchmarkDBStorageAddBatch(b *testing.B) {
+	storage, _, cleanup := setupTestDB(b)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	for i := 0; b.Loop(); i++ {
+		items := make([]Row, 10)
+		for j := range 10 {
+			items[j] = Row{
+				ID:          utils.GenerateId(8),
+				OriginalURL: "https://example.com/" + fmt.Sprint(i) + "/" + fmt.Sprint(j),
+				UserID:      "user",
+			}
+		}
+		err := storage.AddBatch(ctx, items)
+		if err != nil {
+			b.Fatalf("AddBatch failed: %v", err)
+		}
+	}
+}
+
 // test get user urls
 func TestDBStorage_GetUserUrls(t *testing.T) {
 	// create storage
@@ -126,7 +196,6 @@ func TestDBStorage_GetUserUrls(t *testing.T) {
 		{ID: "id4", OriginalURL: "http://example4.com", UserID: "u2"},
 		{ID: "id5", OriginalURL: "http://example5.com", UserID: "u2"},
 	}
-	// add test ids
 	err := store.AddBatch(ctx, testRows)
 	require.NoError(t, err)
 	// test get user urls
@@ -138,6 +207,33 @@ func TestDBStorage_GetUserUrls(t *testing.T) {
 	userUrls, err := store.GetUserURLs(ctx, userId1)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, userUrls)
+}
+
+func BenchmarkDBStorageGetUserURLs(b *testing.B) {
+	storage, _, cleanup := setupTestDB(b)
+	defer cleanup()
+
+	ctx := context.Background()
+	userID := "benchUser"
+	for i := 0; i < 100; i++ {
+		row := Row{
+			ID:          utils.GenerateId(8),
+			OriginalURL: "https://example.com/" + fmt.Sprint(i),
+			UserID:      userID,
+		}
+		err := storage.Add(ctx, row)
+		if err != nil {
+			b.Fatalf("failed to add initial data: %v", err)
+		}
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := storage.GetUserURLs(ctx, userID)
+		if err != nil {
+			b.Fatalf("GetUserURLs failed: %v", err)
+		}
+	}
 }
 
 // test delete batch from storage
@@ -168,4 +264,37 @@ func TestDBStorage_DeleteBatch(t *testing.T) {
 	got, err = store.Get(ctx, "id2")
 	assert.NoError(t, err)
 	assert.Equal(t, "http://example2.com", got)
+}
+
+func BenchmarkDBStorageDeleteBatch(b *testing.B) {
+	storage, _, cleanup := setupTestDB(b)
+	defer cleanup()
+
+	ctx := context.Background()
+	userID := "delUser"
+	ids := make([]string, 10)
+	for i := 0; i < 10; i++ {
+		id := utils.GenerateId(8)
+		ids[i] = id
+		row := Row{ID: id, OriginalURL: "https://example.com/" + id, UserID: userID}
+		err := storage.Add(ctx, row)
+		if err != nil {
+			b.Fatalf("failed to add initial data: %v", err)
+		}
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		err := storage.DeleteBatch(ctx, userID, ids)
+		if err != nil {
+			b.Fatalf("DeleteBatch failed: %v", err)
+		}
+		for _, id := range ids {
+			row := Row{ID: id, OriginalURL: "https://example.com/" + id, UserID: userID}
+			err := storage.Add(ctx, row)
+			if err != nil {
+				b.Fatalf("failed to re-add after delete: %v", err)
+			}
+		}
+	}
 }

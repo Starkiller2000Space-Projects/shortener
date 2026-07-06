@@ -64,3 +64,24 @@ func TestAuditMiddleware_DoNothing(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "ok", w.Body.String())
 }
+
+func BenchmarkAuditMiddleware(b *testing.B) {
+	auditor := NewMockAudit(b)
+	auditor.EXPECT().NotifyAll(mock.Anything).Return()
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if data, ok := r.Context().Value(audit.AuditKey).(*models.AuditData); ok {
+			data.Action = models.AuditShorten
+			data.URL = "http://example.com"
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := AuditMiddleware(auditor)(next)
+
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+	}
+}

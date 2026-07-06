@@ -5,12 +5,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestLoggerMiddleware(t *testing.T) {
-	logger.Initialize("INFO")
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
@@ -23,4 +21,15 @@ func TestLoggerMiddleware(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "ok", w.Body.String())
+}
+
+func BenchmarkLoggerMiddleware(b *testing.B) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	handler := LoggerMiddleware(next)
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+	}
 }
