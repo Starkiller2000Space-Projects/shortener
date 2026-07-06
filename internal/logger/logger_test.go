@@ -22,4 +22,6 @@ func TestInitialize(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, level, Log.Level())
 	}
+	// clear logger so that other tests do not sent spam messages
+	Log = zap.NewNop()
 }

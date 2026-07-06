@@ -29,3 +29,4 @@ vendor/
 # data
 *.json
 bin/*
+temp/

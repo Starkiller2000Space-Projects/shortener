@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/max-marek-projects/shortener/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,6 +50,36 @@ func TestFileStorage_AddAndGet(t *testing.T) {
 	got, err = store.Get(ctx, testId)
 	assert.Equal(t, "", got)
 	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func BenchmarkFileStorageAdd(b *testing.B) {
+	tmpFile, _ := os.CreateTemp("", "bench_*.json")
+	defer os.Remove(tmpFile.Name())
+	storage, _ := NewFileStorage(tmpFile.Name())
+	ctx := context.Background()
+	data := Row{
+		ID:          utils.GenerateId(8),
+		OriginalURL: "https://example.com",
+		UserID:      "user",
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		data.ID = utils.GenerateId(8)
+		_ = storage.Add(ctx, data)
+	}
+}
+
+func BenchmarkFileStorageGet(b *testing.B) {
+	tmpFile, _ := os.CreateTemp("", "bench_*.json")
+	defer os.Remove(tmpFile.Name())
+	storage, _ := NewFileStorage(tmpFile.Name())
+	ctx := context.Background()
+	id := "existing"
+	_ = storage.Add(ctx, Row{ID: id, OriginalURL: "https://example.com", UserID: "user"})
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = storage.Get(ctx, id)
+	}
 }
 
 // test ping for file storage
@@ -122,6 +153,47 @@ func TestFileStorage_AddBatch(t *testing.T) {
 	assert.ErrorIs(t, err, context.Canceled)
 }
 
+func BenchmarkFileStorageAddBatch(b *testing.B) {
+	tmpFile, _ := os.CreateTemp("", "bench_*.json")
+	defer os.Remove(tmpFile.Name())
+	storage, _ := NewFileStorage(tmpFile.Name())
+	ctx := context.Background()
+	items := make([]Row, 10)
+	for i := 0; i < 10; i++ {
+		items[i] = Row{
+			ID:          utils.GenerateId(8),
+			OriginalURL: "https://example.com/" + string(rune(i)),
+			UserID:      "user",
+		}
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for j := range items {
+			items[j].ID = utils.GenerateId(8)
+		}
+		_ = storage.AddBatch(ctx, items)
+	}
+}
+
+func BenchmarkFileStorageGetUserURLs(b *testing.B) {
+	tmpFile, _ := os.CreateTemp("", "bench_*.json")
+	defer os.Remove(tmpFile.Name())
+	storage, _ := NewFileStorage(tmpFile.Name())
+	ctx := context.Background()
+	userID := "userX"
+	for i := 0; i < 100; i++ {
+		_ = storage.Add(ctx, Row{
+			ID:          utils.GenerateId(8),
+			OriginalURL: "https://example.com/" + string(rune(i)),
+			UserID:      userID,
+		})
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = storage.GetUserURLs(ctx, userID)
+	}
+}
+
 // test delete batch from storage
 func TestFileStorage_DeleteBatch(t *testing.T) {
 	// create temp tile
@@ -163,4 +235,25 @@ func TestFileStorage_DeleteBatch(t *testing.T) {
 	cancel()
 	err = store.DeleteBatch(ctx, "u1", []string{"id1", "id2"})
 	assert.ErrorIs(t, err, context.Canceled)
+}
+
+func BenchmarkFileStorageDeleteBatch(b *testing.B) {
+	tmpFile, _ := os.CreateTemp("", "bench_*.json")
+	defer os.Remove(tmpFile.Name())
+	storage, _ := NewFileStorage(tmpFile.Name())
+	ctx := context.Background()
+	userID := "userDel"
+	ids := make([]string, 10)
+	for i := 0; i < 10; i++ {
+		id := utils.GenerateId(8)
+		ids[i] = id
+		_ = storage.Add(ctx, Row{ID: id, OriginalURL: "https://example.com", UserID: userID})
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = storage.DeleteBatch(ctx, userID, ids)
+		for _, id := range ids {
+			_ = storage.Add(ctx, Row{ID: id, OriginalURL: "https://example.com", UserID: userID})
+		}
+	}
 }

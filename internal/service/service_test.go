@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -13,8 +14,10 @@ import (
 	"github.com/max-marek-projects/shortener/internal/models"
 	"github.com/max-marek-projects/shortener/internal/repository"
 	"github.com/max-marek-projects/shortener/internal/requests"
+	"github.com/max-marek-projects/shortener/internal/utils"
 )
 
+// test for short url creation
 func TestService_CreateShortURL(t *testing.T) {
 	idSize := 8
 	mockStorage := NewMockStorage(t)
@@ -101,6 +104,17 @@ func TestService_CreateShortURL(t *testing.T) {
 	}
 }
 
+func BenchmarkService_CreateShortURL(b *testing.B) {
+	store, _ := repository.NewMemStorage()
+	svc := NewEndpointService(store, "", 8)
+	ctx := requests.SetUserIDToContext(context.Background(), "bench-user")
+
+	for i := 0; b.Loop(); i++ {
+		url := fmt.Sprintf("https://example.com/%d", i)
+		_, _ = svc.CreateShortURL(ctx, url, "http", "localhost:8080")
+	}
+}
+
 func TestService_GetOriginalURL(t *testing.T) {
 	fixedId := "test1234"
 	idSize := 8
@@ -151,6 +165,25 @@ func TestService_GetOriginalURL(t *testing.T) {
 	}
 }
 
+func BenchmarkService_GetOriginalURL(b *testing.B) {
+	store, _ := repository.NewMemStorage()
+	svc := NewEndpointService(store, "", 8)
+	ctx := requests.SetUserIDToContext(context.Background(), "bench-user")
+
+	const n = 1000
+	ids := make([]string, n)
+	for i := range n {
+		id := utils.GenerateId(8)
+		ids[i] = id
+		_ = store.Add(ctx, repository.Row{ID: id, OriginalURL: fmt.Sprintf("https://example.com/%d", i), UserID: "bench-user"})
+	}
+
+	for i := 0; b.Loop(); i++ {
+		id := ids[i%n]
+		_, _ = svc.GetOriginalURL(ctx, id)
+	}
+}
+
 func TestService_CreateShortURLsBatch(t *testing.T) {
 	idSize := 8
 	mockStorage := NewMockStorage(t)
@@ -171,6 +204,24 @@ func TestService_CreateShortURLsBatch(t *testing.T) {
 	}
 }
 
+func BenchmarkService_CreateShortURLsBatch(b *testing.B) {
+	store, _ := repository.NewMemStorage()
+	svc := NewEndpointService(store, "http://short.com", 8)
+	ctx := requests.SetUserIDToContext(context.Background(), "bench-user")
+	const batchSize = 10
+
+	for i := 0; b.Loop(); i++ {
+		req := make([]models.BatchShortenRequest, batchSize)
+		for j := range batchSize {
+			req[j] = models.BatchShortenRequest{
+				CorrelationID: fmt.Sprintf("%d-%d", i, j),
+				OriginalURL:   fmt.Sprintf("https://example.com/%d/%d", i, j),
+			}
+		}
+		_, _ = svc.CreateShortURLsBatch(ctx, req, "http", "short.com")
+	}
+}
+
 func TestService_GetUserURLs(t *testing.T) {
 	mockStorage := NewMockStorage(t)
 	userURLs := []repository.UserURL{
@@ -185,6 +236,22 @@ func TestService_GetUserURLs(t *testing.T) {
 	assert.Len(t, result, 1)
 	assert.Equal(t, "http://short.com/abc123", result[0].ShortURL)
 	assert.Equal(t, "http://orig.com", result[0].OriginalURL)
+}
+
+func BenchmarkService_GetUserURLs(b *testing.B) {
+	store, _ := repository.NewMemStorage()
+	svc := NewEndpointService(store, "http://short.com", 8)
+	ctx := requests.SetUserIDToContext(context.Background(), "bench-user")
+
+	const n = 100
+	for i := range n {
+		id := utils.GenerateId(8)
+		_ = store.Add(ctx, repository.Row{ID: id, OriginalURL: fmt.Sprintf("https://example.com/%d", i), UserID: "bench-user"})
+	}
+
+	for b.Loop() {
+		_, _ = svc.GetUserURLs(ctx, "http", "short.com")
+	}
 }
 
 func TestService_DeleteUserURLs(t *testing.T) {

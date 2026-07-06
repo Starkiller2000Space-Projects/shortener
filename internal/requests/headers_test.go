@@ -36,6 +36,13 @@ func TestParseAcceptEncoding(t *testing.T) {
 	}
 }
 
+func BenchmarkParseAcceptEncoding(b *testing.B) {
+	header := "gzip, deflate, br;q=0.9"
+	for i := 0; i < b.N; i++ {
+		ParseAcceptEncoding(header)
+	}
+}
+
 func TestParseContentEncoding(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -63,5 +70,12 @@ func TestParseContentEncoding(t *testing.T) {
 			got := ParseContentEncoding(tt.header)
 			assert.Equal(t, tt.want, got)
 		})
+	}
+}
+
+func BenchmarkParseContentEncoding(b *testing.B) {
+	header := "gzip, deflate"
+	for i := 0; i < b.N; i++ {
+		ParseContentEncoding(header)
 	}
 }

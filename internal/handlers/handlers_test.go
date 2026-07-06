@@ -201,6 +201,25 @@ func TestIdHandler(t *testing.T) {
 	}
 }
 
+func BenchmarkIdHandler(b *testing.B) {
+	mockSvc := NewMockService(b)
+	mockSvc.On("GetOriginalURL", mock.Anything, "abc123").Return("https://example.com", nil)
+
+	handler := NewHandler(mockSvc, 10)
+	req := httptest.NewRequest(http.MethodGet, "/abc123", nil)
+	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
+	req = req.WithContext(context.WithValue(context.WithValue(req.Context(), chi.RouteCtxKey, chi.NewRouteContext()), audit.AuditKey, &models.AuditData{}))
+	chi.RouteContext(req.Context()).URLParams.Add("id", "abc123")
+
+	w := httptest.NewRecorder()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		handler.IdHandler(w, req)
+		w.Flush()
+	}
+}
+
 // test adding url to storage
 func TestPostUrlHandler(t *testing.T) {
 	fixedID := "test1234"
@@ -348,6 +367,25 @@ func TestPostUrlHandler(t *testing.T) {
 	}
 }
 
+func BenchmarkPostUrlHandler(b *testing.B) {
+	mockSvc := NewMockService(b)
+	mockSvc.EXPECT().CreateShortURL(mock.Anything, "https://example.com", mock.Anything, mock.Anything).
+		Return("http://localhost/abc123", nil)
+
+	handler := NewHandler(mockSvc, 10)
+	body := []byte("https://example.com")
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req = req.WithContext(context.WithValue(requests.SetUserIDToContext(req.Context(), "user123"), audit.AuditKey, &models.AuditData{}))
+	w := httptest.NewRecorder()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		req.Body = io.NopCloser(bytes.NewReader(body))
+		handler.PostUrlHandler(w, req)
+		w.Flush()
+	}
+}
+
 func TestPingHandler(t *testing.T) {
 	mockService := NewMockService(t)
 	mockService.EXPECT().Ping(mock.Anything).Return(nil)
@@ -414,5 +452,21 @@ func TestPingHandler(t *testing.T) {
 			resp, _ := testRequest(t, ts, test.method, "/ping", "")
 			assert.Equal(t, test.want.code, resp.StatusCode)
 		})
+	}
+}
+
+func BenchmarkPingHandler(b *testing.B) {
+	mockSvc := NewMockService(b)
+	mockSvc.On("Ping", mock.Anything).Return(nil)
+
+	handler := NewHandler(mockSvc, 10)
+	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
+	w := httptest.NewRecorder()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		handler.PingHandler(w, req)
+		w.Flush()
 	}
 }
