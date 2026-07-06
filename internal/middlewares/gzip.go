@@ -9,7 +9,7 @@ import (
 	"slices"
 
 	"github.com/max-marek-projects/shortener/internal/logger"
-	"github.com/max-marek-projects/shortener/internal/utils"
+	"github.com/max-marek-projects/shortener/internal/requests"
 	"go.uber.org/zap"
 )
 
@@ -98,14 +98,14 @@ func GzipMiddleware(next http.Handler) http.Handler {
 	gzipFn := func(w http.ResponseWriter, r *http.Request) {
 		ow := w // copy writer to save original value
 
-		acceptEncoding := utils.ParseAcceptEncoding(r.Header.Get("Accept-Encoding"))
+		acceptEncoding := requests.ParseAcceptEncoding(r.Header.Get("Accept-Encoding"))
 		if q, ok := acceptEncoding["gzip"]; ok && q > 0 {
 			cw := newCompressWriter(w)
 			ow = cw
 			defer cw.Close()
 		}
 
-		if slices.Contains(utils.ParseContentEncoding(r.Header.Get("Content-Encoding")), "gzip") {
+		if slices.Contains(requests.ParseContentEncoding(r.Header.Get("Content-Encoding")), "gzip") {
 			cr, err := newCompressReader(r.Body)
 			if err != nil {
 				logger.Log.Error("Failed to create compress data reader", zap.Error(err))

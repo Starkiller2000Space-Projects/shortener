@@ -1,12 +1,12 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"io"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/max-marek-projects/shortener/internal/audit"
 	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/max-marek-projects/shortener/internal/models"
 	"github.com/max-marek-projects/shortener/internal/repository"
@@ -35,15 +35,18 @@ func (h *Handler) IdHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusGone)
 			return
 		}
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "Wrong id", http.StatusBadRequest)
 		return
 	}
+	auditData, ok := r.Context().Value(audit.AuditKey).(*models.AuditData)
+	if !ok {
+		logger.Log.Error("No audit data in context")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	auditData.Action = models.AuditFollow
+	auditData.URL = url
 	w.Header().Set("Location", url)
-	ctx := context.WithValue(r.Context(), "audit_data", models.AuditData{
-		Action: models.AuditFollow,
-		URL:    url,
-	})
-	r = r.WithContext(ctx)
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
@@ -51,15 +54,18 @@ func (h *Handler) IdHandler(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil || len(body) == 0 {
-		w.WriteHeader(http.StatusBadRequest)
+		http.Error(w, "Empty body", http.StatusBadRequest)
 		return
 	}
 	originalUrl := string(body)
-	ctx := context.WithValue(r.Context(), "audit_data", models.AuditData{
-		Action: models.AuditShorten,
-		URL:    originalUrl,
-	})
-	r = r.WithContext(ctx)
+	auditData, ok := r.Context().Value(audit.AuditKey).(*models.AuditData)
+	if !ok {
+		logger.Log.Error("No audit data in context")
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	auditData.Action = models.AuditShorten
+	auditData.URL = originalUrl
 	shortURL, err := h.service.CreateShortURL(r.Context(), originalUrl, r.Header.Get("X-Forwarded-Proto"), r.Host)
 	if err != nil {
 		if errors.Is(err, service.ErrorEmptyUrl) {

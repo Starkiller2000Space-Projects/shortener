@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestRequestsLogger(t *testing.T) {
+func TestLoggerMiddleware(t *testing.T) {
 	logger.Initialize("INFO")
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
-	loggedHandler := RequestsLogger(handler)
+	loggedHandler := LoggerMiddleware(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	w := httptest.NewRecorder()

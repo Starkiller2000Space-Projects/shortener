@@ -14,6 +14,12 @@ func TestGenerateId(t *testing.T) {
 	}
 }
 
+func BenchmarkGenerateId(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		_ = GenerateId(8)
+	}
+}
+
 func TestGenerateUserID(t *testing.T) {
 	id1 := GenerateUserID()
 	id2 := GenerateUserID()
