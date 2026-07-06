@@ -3,6 +3,7 @@ package audit
 import "github.com/max-marek-projects/shortener/internal/models"
 
 // audit observer interface
+//
 //go:generate mockery --name=Observer --inpackage --filename=mock_observer_test.go --with-expecter
 type Observer interface {
 	Notify(event models.AuditEvent)
