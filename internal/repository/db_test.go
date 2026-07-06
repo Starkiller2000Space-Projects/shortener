@@ -14,7 +14,9 @@ import (
 // create test db in container
 func setupTestDB(t *testing.T) (*dbStorage, *db.DBConf, func()) {
 	err := godotenv.Load("../../.env")
-	require.NoError(t, err)
+	if err != nil && !os.IsNotExist(err) {
+		require.NoError(t, err)
+	}
 	dsn := os.Getenv("TEST_DATABASE_DSN")
 	if dsn == "" {
 		t.Skip("TEST_DATABASE_DSN not set, skipping integration test")
