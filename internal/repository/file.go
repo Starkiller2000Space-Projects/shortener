@@ -1,11 +1,11 @@
 package repository
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 )
@@ -40,25 +40,40 @@ func NewFileStorage(filePath string) (*fileStorage, error) {
 func (fs *fileStorage) load() error {
 	f, err := os.Open(fs.filePath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if os.IsNotExist(err) {
 			return nil
 		}
-		return fmt.Errorf("failed to load storage file: %w", err)
+		return fmt.Errorf("failed to open file: %w", err)
 	}
 	defer f.Close()
 
-	var records []fileRecord
-	if err := json.NewDecoder(f).Decode(&records); err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		return fmt.Errorf("failed to load storage file: %w", err)
-	}
-
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
-	for _, rec := range records {
-		fs.data[rec.ShortURL] = urlInfo{originalURL: rec.OriginalURL, userID: rec.UserID}
+
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+
+	fs.data = make(map[string]urlInfo)
+	fs.urlToID = make(map[string]string)
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(line) == 0 {
+			continue
+		}
+		var rec fileRecord
+		if err := json.Unmarshal(line, &rec); err != nil {
+			return fmt.Errorf("failed to parse line: %w", err)
+		}
+		fs.data[rec.ShortURL] = urlInfo{
+			originalURL: rec.OriginalURL,
+			userID:      rec.UserID,
+			deleted:     rec.Deleted,
+		}
+		fs.urlToID[rec.OriginalURL] = rec.ShortURL
+	}
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading file: %w", err)
 	}
 	return nil
 }
@@ -78,14 +93,45 @@ func (fs *fileStorage) save() error {
 	return encoder.Encode(records)
 }
 
+func (fs *fileStorage) appendRecords(recs []fileRecord) error {
+	if len(recs) == 0 {
+		return nil
+	}
+	f, err := os.OpenFile(fs.filePath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	var buf bytes.Buffer
+	for _, rec := range recs {
+		data, err := json.Marshal(rec)
+		if err != nil {
+			return err
+		}
+		buf.Write(data)
+		buf.WriteByte('\n')
+	}
+	_, err = f.Write(buf.Bytes())
+	return err
+}
+
 // add url into storage and return generated id
 func (fs *fileStorage) add(info Row) error {
 	err := fs.memStorage.add(info)
 	if err != nil {
 		return err
 	}
-	if err := fs.save(); err != nil {
+	recs := []fileRecord{
+		{
+			ShortURL:    info.ID,
+			OriginalURL: info.OriginalURL,
+			UserID:      info.UserID,
+			Deleted:     false,
+		},
+	}
+	if err := fs.appendRecords(recs); err != nil {
 		delete(fs.data, info.ID) // undo on error
+		delete(fs.urlToID, info.OriginalURL)
 		return fmt.Errorf("Failed to add data to storage file: %w", err)
 	}
 	return nil
@@ -137,9 +183,19 @@ func (fs *fileStorage) addBatch(items []Row) error {
 	if err != nil {
 		return err
 	}
-	if err := fs.save(); err != nil {
+	recs := make([]fileRecord, len(items))
+	for i, item := range items {
+		recs[i] = fileRecord{
+			ShortURL:    item.ID,
+			OriginalURL: item.OriginalURL,
+			UserID:      item.UserID,
+			Deleted:     false,
+		}
+	}
+	if err := fs.appendRecords(recs); err != nil {
 		for _, item := range items {
 			delete(fs.data, item.ID) // undo on error
+			delete(fs.urlToID, item.OriginalURL)
 		}
 		return fmt.Errorf("Failed to add batch to file: %w", err)
 	}
