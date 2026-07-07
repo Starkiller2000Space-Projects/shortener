@@ -7,7 +7,7 @@ import (
 )
 
 func TestErrAlreadyExists(t *testing.T) {
-	testId := "12345"
-	err := &ErrAlreadyExists{ExistingID: testId}
-	assert.Contains(t, err.Error(), testId)
+	testID := "12345"
+	err := &ErrAlreadyExists{ExistingID: testID}
+	assert.Contains(t, err.Error(), testID)
 }

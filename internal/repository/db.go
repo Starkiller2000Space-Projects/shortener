@@ -86,15 +86,15 @@ func (dbs *dbStorage) Get(ctx context.Context, id string) (string, error) {
 	default:
 	}
 	var val string
-	var is_deleted bool
-	err := dbs.storage.QueryRowContext(ctx, `SELECT original_url, is_deleted FROM urls WHERE id = $1`, id).Scan(&val, &is_deleted)
+	var isDeleted bool
+	err := dbs.storage.QueryRowContext(ctx, `SELECT original_url, is_deleted FROM urls WHERE id = $1`, id).Scan(&val, &isDeleted)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrNotFound
 		}
 		return "", fmt.Errorf("failed to get url from storage by id: %w", err)
 	}
-	if is_deleted {
+	if isDeleted {
 		return "", fmt.Errorf("%w: %s", ErrGone, id)
 	}
 	return val, nil
@@ -139,6 +139,9 @@ func (dbs *dbStorage) GetUserURLs(ctx context.Context, userID string) ([]UserURL
 	query := `SELECT id, original_url FROM urls WHERE user_id = $1 AND is_deleted = false`
 	rows, err := dbs.storage.QueryContext(ctx, query, userID)
 	if err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 	defer rows.Close()

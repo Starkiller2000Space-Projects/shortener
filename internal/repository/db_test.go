@@ -47,25 +47,25 @@ func TestDBStorage_Add(t *testing.T) {
 	defer cleanup()
 	ctx := context.Background()
 	// check id is not present in storage
-	testId := "id1"
-	testUrl := "http://example.com"
-	got, err := store.Get(ctx, testId)
+	testID := "id1"
+	testURL := "http://example.com"
+	got, err := store.Get(ctx, testID)
 	assert.Error(t, err)
 	assert.Equal(t, "", got)
 	// add test id
-	row := Row{ID: testId, OriginalURL: testUrl, UserID: "u1"}
+	row := Row{ID: testID, OriginalURL: testURL, UserID: "u1"}
 	err = store.Add(ctx, row)
 	assert.NoError(t, err)
 	// test id was added to storage
-	got, err = store.Get(ctx, testId)
+	got, err = store.Get(ctx, testID)
 	assert.NoError(t, err)
-	assert.Equal(t, testUrl, got)
+	assert.Equal(t, testURL, got)
 	// check new storage creation leaves data in storage
 	store2, err := NewDBStorage(dbConf)
 	require.NoError(t, err)
-	got2, err := store2.Get(ctx, testId)
+	got2, err := store2.Get(ctx, testID)
 	assert.NoError(t, err)
-	assert.Equal(t, testUrl, got2)
+	assert.Equal(t, testURL, got2)
 }
 
 func BenchmarkDBStorageAdd(b *testing.B) {
@@ -188,11 +188,11 @@ func TestDBStorage_GetUserUrls(t *testing.T) {
 	defer cleanup()
 	ctx := context.Background()
 	// check id is not present in storage
-	userId1 := "u1"
+	userID1 := "u1"
 	testRows := []Row{
-		{ID: "id1", OriginalURL: "http://example1.com", UserID: userId1},
-		{ID: "id2", OriginalURL: "http://example2.com", UserID: userId1},
-		{ID: "id3", OriginalURL: "http://example3.com", UserID: userId1},
+		{ID: "id1", OriginalURL: "http://example1.com", UserID: userID1},
+		{ID: "id2", OriginalURL: "http://example2.com", UserID: userID1},
+		{ID: "id3", OriginalURL: "http://example3.com", UserID: userID1},
 		{ID: "id4", OriginalURL: "http://example4.com", UserID: "u2"},
 		{ID: "id5", OriginalURL: "http://example5.com", UserID: "u2"},
 	}
@@ -204,7 +204,7 @@ func TestDBStorage_GetUserUrls(t *testing.T) {
 		{ShortURL: "id2", OriginalURL: "http://example2.com"},
 		{ShortURL: "id3", OriginalURL: "http://example3.com"},
 	}
-	userUrls, err := store.GetUserURLs(ctx, userId1)
+	userUrls, err := store.GetUserURLs(ctx, userID1)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, userUrls)
 }

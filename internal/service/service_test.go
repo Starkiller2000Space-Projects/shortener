@@ -116,12 +116,12 @@ func BenchmarkService_CreateShortURL(b *testing.B) {
 }
 
 func TestService_GetOriginalURL(t *testing.T) {
-	fixedId := "test1234"
+	fixedID := "test1234"
 	idSize := 8
 	existingURL := "https://existing-url.com"
 	// mock service
 	mockStorage := NewMockStorage(t)
-	mockStorage.EXPECT().Get(mock.Anything, fixedId).Return(existingURL, nil)
+	mockStorage.EXPECT().Get(mock.Anything, fixedID).Return(existingURL, nil)
 	mockStorage.EXPECT().Get(mock.Anything, mock.Anything).Return("", repository.ErrNotFound)
 	testService := NewEndpointService(mockStorage, "", idSize)
 	type want struct {
@@ -135,7 +135,7 @@ func TestService_GetOriginalURL(t *testing.T) {
 	}{
 		{
 			name:    "success",
-			shortID: fixedId,
+			shortID: fixedID,
 			want: want{
 				url: existingURL,
 				err: nil,
