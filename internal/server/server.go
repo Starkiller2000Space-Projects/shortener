@@ -36,12 +36,12 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 
 	// public endpoints
 	r.Get("/ping", h.PingHandler)
-	r.Get("/{id}", h.IdHandler)
+	r.Get("/{id}", h.IDHandler)
 
 	// protected endpoints
 	r.Group(func(protected chi.Router) {
 		protected.Use(middlewares.AuthMiddleware(cookieSecret))
-		protected.Post("/", h.PostUrlHandler)
+		protected.Post("/", h.PostURLHandler)
 		protected.Route("/api", func(api chi.Router) {
 			api.Post("/shorten", h.ShortenJSONHandler)
 			api.Post("/shorten/batch", h.PostBatchShortenHandler)

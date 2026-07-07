@@ -27,11 +27,11 @@ func NewHandler(service service.Service, maxParallelWorkers int) *Handler {
 	return &Handler{service: service, maxParallelWorkers: maxParallelWorkers}
 }
 
-// IdHandler handles GET /{id} – redirects to the original URL.
+// IDHandler handles GET /{id} – redirects to the original URL.
 // If the ID does not exist, returns 400 Bad Request.
 // If the URL has been deleted, returns 410 Gone.
 // It also records an audit follow action.
-func (h *Handler) IdHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) IDHandler(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	w.Header().Set("Content-Type", "text/plain")
 	url, err := h.service.GetOriginalURL(r.Context(), id)
@@ -55,17 +55,17 @@ func (h *Handler) IdHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
-// PostUrlHandler handles POST / – creates a short URL from the plain text body.
+// PostURLHandler handles POST / – creates a short URL from the plain text body.
 // The body should contain the original URL.
 // On success, returns 201 Created with the short URL in plain text.
 // If the URL already exists, returns 409 Conflict with the existing short URL.
-func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) PostURLHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil || len(body) == 0 {
 		http.Error(w, "Empty body", http.StatusBadRequest)
 		return
 	}
-	originalUrl := string(body)
+	originalURL := string(body)
 	auditData, ok := r.Context().Value(audit.AuditKey).(*models.AuditData)
 	if !ok {
 		logger.Log.Error("No audit data in context")
@@ -73,8 +73,8 @@ func (h *Handler) PostUrlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	auditData.Action = models.AuditShorten
-	auditData.URL = originalUrl
-	shortURL, err := h.service.CreateShortURL(r.Context(), originalUrl, r.Header.Get("X-Forwarded-Proto"), r.Host)
+	auditData.URL = originalURL
+	shortURL, err := h.service.CreateShortURL(r.Context(), originalURL, r.Header.Get("X-Forwarded-Proto"), r.Host)
 	if err != nil {
 		if errors.Is(err, service.ErrorEmptyUrl) {
 			http.Error(w, "Empty url", http.StatusBadRequest)

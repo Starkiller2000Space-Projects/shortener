@@ -39,8 +39,11 @@ func (s *audit) NotifyAll(event models.AuditEvent) {
 	}
 }
 
+// contextKey used for defining custom context keys
+type contextKey string
+
 // AuditKey is the context key used to store audit data in the request context.
-var AuditKey string = "audit_data"
+var AuditKey contextKey = "audit_data"
 
 // InitAudit initializes a new audit instance and registers file and/or HTTP observers
 // based on the provided file path and URL.

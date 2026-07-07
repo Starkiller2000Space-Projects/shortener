@@ -27,7 +27,7 @@ func setupTestDB(t interface {
 	if dsn == "" {
 		t.Skip("TEST_DATABASE_DSN not set, skipping integration test")
 	}
-	config := db.NewDbConf(dsn)
+	config := db.NewDBConf(dsn)
 	config.MigrationsPath = "../../migrations"
 	storage, err := NewDBStorage(config)
 	require.NoError(t, err)
@@ -76,7 +76,7 @@ func BenchmarkDBStorageAdd(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		id := utils.GenerateId(8)
+		id := utils.GenerateID(8)
 		row := Row{
 			ID:          id,
 			OriginalURL: "https://example.com/" + id,
@@ -169,7 +169,7 @@ func BenchmarkDBStorageAddBatch(b *testing.B) {
 		items := make([]Row, 10)
 		for j := range 10 {
 			items[j] = Row{
-				ID:          utils.GenerateId(8),
+				ID:          utils.GenerateID(8),
 				OriginalURL: "https://example.com/" + fmt.Sprint(i) + "/" + fmt.Sprint(j),
 				UserID:      "user",
 			}
@@ -217,7 +217,7 @@ func BenchmarkDBStorageGetUserURLs(b *testing.B) {
 	userID := "benchUser"
 	for i := 0; i < 100; i++ {
 		row := Row{
-			ID:          utils.GenerateId(8),
+			ID:          utils.GenerateID(8),
 			OriginalURL: "https://example.com/" + fmt.Sprint(i),
 			UserID:      userID,
 		}
@@ -274,7 +274,7 @@ func BenchmarkDBStorageDeleteBatch(b *testing.B) {
 	userID := "delUser"
 	ids := make([]string, 10)
 	for i := 0; i < 10; i++ {
-		id := utils.GenerateId(8)
+		id := utils.GenerateID(8)
 		ids[i] = id
 		row := Row{ID: id, OriginalURL: "https://example.com/" + id, UserID: userID}
 		err := storage.Add(ctx, row)

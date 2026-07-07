@@ -35,8 +35,8 @@ func newTestRouter(service *MockService, withAudit, withAuth bool) http.Handler 
 		r.Use(withTestAuth)
 	}
 	r.Get("/ping", h.PingHandler)
-	r.Get("/{id}", h.IdHandler)
-	r.Post("/", h.PostUrlHandler)
+	r.Get("/{id}", h.IDHandler)
+	r.Post("/", h.PostURLHandler)
 	r.Route("/api", func(api chi.Router) {
 		api.Post("/shorten", h.ShortenJSONHandler)
 		api.Post("/shorten/batch", h.PostBatchShortenHandler)
@@ -54,11 +54,11 @@ func withTestAudit(next http.Handler) http.Handler {
 	})
 }
 
-var testUserId string = "123user"
+var testUserID string = "123user"
 
 func withTestAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := requests.SetUserIDToContext(r.Context(), testUserId)
+		ctx := requests.SetUserIDToContext(r.Context(), testUserID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -96,9 +96,9 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path, body string, o
 }
 
 // test getting url by its id
-func TestIdHandler(t *testing.T) {
+func TestIDHandler(t *testing.T) {
 	fixedID := "test1234"
-	existingUrl := "https://example.com/"
+	existingURL := "https://example.com/"
 
 	type want struct {
 		code        int
@@ -120,14 +120,14 @@ func TestIdHandler(t *testing.T) {
 			name:   "positive test",
 			method: http.MethodGet,
 			service: &serviceData{
-				value: existingUrl,
+				value: existingURL,
 				err:   nil,
 			},
 			audit: true,
 			want: want{
 				code:        http.StatusTemporaryRedirect,
 				contentType: "text/plain",
-				location:    existingUrl,
+				location:    existingURL,
 			},
 		},
 		{
@@ -172,7 +172,7 @@ func TestIdHandler(t *testing.T) {
 			name:   "no audit",
 			method: http.MethodGet,
 			service: &serviceData{
-				value: existingUrl,
+				value: existingURL,
 				err:   nil,
 			},
 			audit: false,
@@ -201,7 +201,7 @@ func TestIdHandler(t *testing.T) {
 	}
 }
 
-func BenchmarkIdHandler(b *testing.B) {
+func BenchmarkIDHandler(b *testing.B) {
 	mockSvc := NewMockService(b)
 	mockSvc.On("GetOriginalURL", mock.Anything, "abc123").Return("https://example.com", nil)
 
@@ -215,13 +215,13 @@ func BenchmarkIdHandler(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		handler.IdHandler(w, req)
+		handler.IDHandler(w, req)
 		w.Flush()
 	}
 }
 
 // test adding url to storage
-func TestPostUrlHandler(t *testing.T) {
+func TestPostURLHandler(t *testing.T) {
 	fixedID := "test1234"
 
 	type want struct {
@@ -359,15 +359,15 @@ func TestPostUrlHandler(t *testing.T) {
 				return
 			}
 			assert.Equal(t, test.want.contentType, resp.Header.Get("Content-Type"))
-			parsedUrl, err := url.Parse(body)
+			parsedURL, err := url.Parse(body)
 			require.NoError(t, err)
-			createdId := strings.TrimLeft(parsedUrl.Path, "/")
-			assert.Equal(t, fixedID, createdId)
+			createdID := strings.TrimLeft(parsedURL.Path, "/")
+			assert.Equal(t, fixedID, createdID)
 		})
 	}
 }
 
-func BenchmarkPostUrlHandler(b *testing.B) {
+func BenchmarkPostURLHandler(b *testing.B) {
 	mockSvc := NewMockService(b)
 	mockSvc.EXPECT().CreateShortURL(mock.Anything, "https://example.com", mock.Anything, mock.Anything).
 		Return("http://localhost/abc123", nil)
@@ -381,7 +381,7 @@ func BenchmarkPostUrlHandler(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		req.Body = io.NopCloser(bytes.NewReader(body))
-		handler.PostUrlHandler(w, req)
+		handler.PostURLHandler(w, req)
 		w.Flush()
 	}
 }

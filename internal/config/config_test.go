@@ -41,10 +41,10 @@ func TestLoadConfig_Flags(t *testing.T) {
 	expected := &Config{
 		RunAddr:            ":9090",
 		ShowAddr:           "https://flag-example.com",
-		IdSize:             25,
+		IDSize:             25,
 		LoggerLevel:        "ERROR",
 		FileStoragePath:    "./storage_flag.json",
-		DatabaseUrl:        "postgres://flag:pass@localhost:5432/shortener?sslmode=disable",
+		DatabaseURL:        "postgres://flag:pass@localhost:5432/shortener?sslmode=disable",
 		CookieSecret:       "flag_secret",
 		MaxParallelWorkers: 374,
 		AuditFile:          "./audit_flag.log",
@@ -56,10 +56,10 @@ func TestLoadConfig_Flags(t *testing.T) {
 	for expectedValue, actualValue := range map[any]any{
 		expected.RunAddr:            cfg.RunAddr,
 		expected.ShowAddr:           cfg.ShowAddr,
-		expected.IdSize:             cfg.IdSize,
+		expected.IDSize:             cfg.IDSize,
 		expected.LoggerLevel:        cfg.LoggerLevel,
 		expected.FileStoragePath:    cfg.FileStoragePath,
-		expected.DatabaseUrl:        cfg.DatabaseUrl,
+		expected.DatabaseURL:        cfg.DatabaseURL,
 		expected.CookieSecret:       cfg.CookieSecret,
 		expected.MaxParallelWorkers: cfg.MaxParallelWorkers,
 		expected.AuditFile:          cfg.AuditFile,
@@ -80,7 +80,7 @@ func TestLoadConfig_Env(t *testing.T) {
 		os.Args = oldArgs
 		flag.CommandLine = oldFlagCommandLine
 		// clear variables after test
-		for _, env_var := range []string{
+		for _, envVar := range []string{
 			"SERVER_ADDRESS",
 			"BASE_URL",
 			"ID_SIZE",
@@ -94,14 +94,14 @@ func TestLoadConfig_Env(t *testing.T) {
 			"READ_TIMEOUT",
 			"WRITE_TIMEOUT",
 		} {
-			os.Unsetenv(env_var)
+			os.Unsetenv(envVar)
 		}
 
 	}()
 	// clear flags and set env vars
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	os.Args = []string{"cmd"}
-	for env_name, env_val := range map[string]string{
+	for envName, envVal := range map[string]string{
 		"SERVER_ADDRESS":       ":9999",
 		"BASE_URL":             "https://env-example.com",
 		"ID_SIZE":              "12",
@@ -115,7 +115,7 @@ func TestLoadConfig_Env(t *testing.T) {
 		"READ_TIMEOUT":         "5s",
 		"WRITE_TIMEOUT":        "10s",
 	} {
-		os.Setenv(env_name, env_val)
+		os.Setenv(envName, envVal)
 	}
 
 	cfg := LoadConfig()
@@ -123,10 +123,10 @@ func TestLoadConfig_Env(t *testing.T) {
 	expected := &Config{
 		RunAddr:            ":9999",
 		ShowAddr:           "https://env-example.com",
-		IdSize:             12,
+		IDSize:             12,
 		LoggerLevel:        "DEBUG",
 		FileStoragePath:    "./storage_env.json",
-		DatabaseUrl:        "postgres://env:pass@localhost:5432/shortener?sslmode=disable",
+		DatabaseURL:        "postgres://env:pass@localhost:5432/shortener?sslmode=disable",
 		CookieSecret:       "env_secret",
 		MaxParallelWorkers: 50,
 		AuditFile:          "./audit_env.log",
@@ -138,10 +138,10 @@ func TestLoadConfig_Env(t *testing.T) {
 	for expectedValue, actualValue := range map[any]any{
 		expected.RunAddr:            cfg.RunAddr,
 		expected.ShowAddr:           cfg.ShowAddr,
-		expected.IdSize:             cfg.IdSize,
+		expected.IDSize:             cfg.IDSize,
 		expected.LoggerLevel:        cfg.LoggerLevel,
 		expected.FileStoragePath:    cfg.FileStoragePath,
-		expected.DatabaseUrl:        cfg.DatabaseUrl,
+		expected.DatabaseURL:        cfg.DatabaseURL,
 		expected.CookieSecret:       cfg.CookieSecret,
 		expected.MaxParallelWorkers: cfg.MaxParallelWorkers,
 		expected.AuditFile:          cfg.AuditFile,

@@ -9,10 +9,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// GenerateId generates a random alphanumeric ID of the specified length.
+// GenerateID generates a random alphanumeric ID of the specified length.
 // It uses crypto/rand and base64 URL-safe encoding without padding.
 // The result is truncated to the given size.
-func GenerateId(size int) string {
+func GenerateID(size int) string {
 	b := make([]byte, size)                               // empty bytes array
 	rand.Read(b)                                          // fill bytes array with random bytes
 	return base64.RawURLEncoding.EncodeToString(b)[:size] // encode bytes array to string

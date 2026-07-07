@@ -142,10 +142,10 @@ func TestShortenJSONHandler(t *testing.T) {
 			assert.Equal(t, test.want.contentType, resp.Header.Get("Content-Type"))
 			var responseData models.ShortenResponse
 			require.NoError(t, json.Unmarshal([]byte(body), &responseData))
-			parsedUrl, err := url.Parse(responseData.Result)
+			parsedURL, err := url.Parse(responseData.Result)
 			require.NoError(t, err)
-			createdId := strings.TrimLeft(parsedUrl.Path, "/")
-			assert.Equal(t, fixedID, createdId)
+			createdID := strings.TrimLeft(parsedURL.Path, "/")
+			assert.Equal(t, fixedID, createdID)
 			var requestData models.ShortenRequest
 			require.NoError(t, json.Unmarshal([]byte(test.request), &requestData))
 		})

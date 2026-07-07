@@ -17,7 +17,7 @@ func TestInitAudit(t *testing.T) {
 		filePath string
 		url      string
 		wantFile bool
-		wantHttp bool
+		wantHTTP bool
 	}{
 		{"no observers", "", "", false, false},
 		{"file only", "/tmp/audit.log", "", true, false},
@@ -29,24 +29,24 @@ func TestInitAudit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			auditPtr := InitAudit(tt.filePath, tt.url)
 			wantLen := 0
-			for _, wantValue := range []bool{tt.wantFile, tt.wantHttp} {
+			for _, wantValue := range []bool{tt.wantFile, tt.wantHTTP} {
 				if wantValue {
 					wantLen++
 				}
 			}
 			assert.Len(t, auditPtr.observers, wantLen)
 			foundFile := false
-			foundHttp := false
+			foundHTTP := false
 			for _, observer := range auditPtr.observers {
 				if _, ok := observer.(*FileAuditObserver); ok {
 					foundFile = true
 				}
 				if _, ok := observer.(*HTTPAuditObserver); ok {
-					foundHttp = true
+					foundHTTP = true
 				}
 			}
 			assert.Equal(t, tt.wantFile, foundFile)
-			assert.Equal(t, tt.wantHttp, foundHttp)
+			assert.Equal(t, tt.wantHTTP, foundHTTP)
 		})
 	}
 }

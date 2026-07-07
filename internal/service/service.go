@@ -73,7 +73,7 @@ func (service *endpointService) CreateShortURL(ctx context.Context, original, sc
 		logger.Log.Error("Url is Empty")
 		return "", ErrorEmptyUrl
 	}
-	id := utils.GenerateId(service.idSize)
+	id := utils.GenerateID(service.idSize)
 	err := service.storage.Add(ctx, repository.Row{ID: id, OriginalURL: original, UserID: userID})
 	if err != nil {
 		var existsErr *repository.ErrAlreadyExists
@@ -131,7 +131,7 @@ func (service *endpointService) CreateShortURLsBatch(
 			return nil, ErrorEmptyUrl
 		}
 
-		id := utils.GenerateId(service.idSize)
+		id := utils.GenerateID(service.idSize)
 		shortURL, err := service.getUrlFromId(id, scheme, host)
 		if err != nil {
 			return nil, fmt.Errorf("Failed to add batch to storage: %w", err)

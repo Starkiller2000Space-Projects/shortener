@@ -95,10 +95,10 @@ func TestService_CreateShortURL(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.True(t, strings.HasPrefix(got, tt.want.short))
-				parsedUrl, err := url.Parse(got)
+				parsedURL, err := url.Parse(got)
 				require.NoError(t, err)
-				createdId := strings.TrimLeft(parsedUrl.Path, "/")
-				assert.Equal(t, idSize, len(createdId))
+				createdID := strings.TrimLeft(parsedURL.Path, "/")
+				assert.Equal(t, idSize, len(createdID))
 			}
 		})
 	}
@@ -118,10 +118,10 @@ func BenchmarkService_CreateShortURL(b *testing.B) {
 func TestService_GetOriginalURL(t *testing.T) {
 	fixedId := "test1234"
 	idSize := 8
-	existingUrl := "https://existing-url.com"
+	existingURL := "https://existing-url.com"
 	// mock service
 	mockStorage := NewMockStorage(t)
-	mockStorage.EXPECT().Get(mock.Anything, fixedId).Return(existingUrl, nil)
+	mockStorage.EXPECT().Get(mock.Anything, fixedId).Return(existingURL, nil)
 	mockStorage.EXPECT().Get(mock.Anything, mock.Anything).Return("", repository.ErrNotFound)
 	testService := NewEndpointService(mockStorage, "", idSize)
 	type want struct {
@@ -137,7 +137,7 @@ func TestService_GetOriginalURL(t *testing.T) {
 			name:    "success",
 			shortID: fixedId,
 			want: want{
-				url: existingUrl,
+				url: existingURL,
 				err: nil,
 			},
 		},
@@ -173,7 +173,7 @@ func BenchmarkService_GetOriginalURL(b *testing.B) {
 	const n = 1000
 	ids := make([]string, n)
 	for i := range n {
-		id := utils.GenerateId(8)
+		id := utils.GenerateID(8)
 		ids[i] = id
 		_ = store.Add(ctx, repository.Row{ID: id, OriginalURL: fmt.Sprintf("https://example.com/%d", i), UserID: "bench-user"})
 	}
@@ -245,7 +245,7 @@ func BenchmarkService_GetUserURLs(b *testing.B) {
 
 	const n = 100
 	for i := range n {
-		id := utils.GenerateId(8)
+		id := utils.GenerateID(8)
 		_ = store.Add(ctx, repository.Row{ID: id, OriginalURL: fmt.Sprintf("https://example.com/%d", i), UserID: "bench-user"})
 	}
 

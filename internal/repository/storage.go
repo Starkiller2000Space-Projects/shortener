@@ -25,19 +25,19 @@ type Storage interface {
 }
 
 // GetStorage creates a new Storage instance based on the provided configuration.
-// It chooses between database storage (if DatabaseUrl is set), file storage (if FileStoragePath is set),
+// It chooses between database storage (if DatabaseURL is set), file storage (if FileStoragePath is set),
 // or in-memory storage as a fallback.
 // Returns an error if both database and file storage are configured (mutually exclusive).
 func GetStorage(cfg *config.Config) (Storage, error) {
-	if (cfg.DatabaseUrl != "") && (cfg.FileStoragePath != "") {
+	if (cfg.DatabaseURL != "") && (cfg.FileStoragePath != "") {
 		return nil, fmt.Errorf("%w: cannot use both -d (database storage) and -f (file storage)", ErrMutuallyExclusiveFlags)
 	}
 	var storage Storage
 	var err error
 	switch {
-	case cfg.DatabaseUrl != "":
+	case cfg.DatabaseURL != "":
 		logger.Log.Info("Initializing database storage")
-		storage, err = NewDBStorage(db.NewDbConf(cfg.DatabaseUrl))
+		storage, err = NewDBStorage(db.NewDBConf(cfg.DatabaseURL))
 	case cfg.FileStoragePath != "":
 		logger.Log.Info("Initializing file storage")
 		storage, err = NewFileStorage(cfg.FileStoragePath)

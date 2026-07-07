@@ -54,9 +54,9 @@ func (s *simpleStorage) Ping(ctx context.Context) error {
 	return nil
 }
 
-// ExampleHandler_PostUrlHandler demonstrates creating a short URL using plain text.
+// ExampleHandler_PostURLHandler demonstrates creating a short URL using plain text.
 // This endpoint accepts a raw URL in the request body and returns the shortened URL.
-func ExampleHandler_PostUrlHandler() {
+func ExampleHandler_PostURLHandler() {
 	store := &simpleStorage{}
 	svc := service.NewEndpointService(store, "http://localhost:8080", 8)
 	h := handlers.NewHandler(svc, 10)
@@ -64,7 +64,7 @@ func ExampleHandler_PostUrlHandler() {
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte("https://example.com")))
 	w := httptest.NewRecorder()
 
-	h.PostUrlHandler(w, req)
+	h.PostURLHandler(w, req)
 
 	// In a real scenario, the response body would contain the shortened URL.
 	// This example is only for documentation purposes.
@@ -110,9 +110,9 @@ func ExampleHandler_PostBatchShortenHandler() {
 	// The response is a JSON array with the same correlation IDs and generated short URLs.
 }
 
-// ExampleHandler_IdHandler demonstrates redirection by short ID.
+// ExampleHandler_IDHandler demonstrates redirection by short ID.
 // It responds with a 307 Temporary Redirect and sets the Location header to the original URL.
-func ExampleHandler_IdHandler() {
+func ExampleHandler_IDHandler() {
 	store := &simpleStorage{}
 	svc := service.NewEndpointService(store, "", 8) // no base URL, use host from request
 	h := handlers.NewHandler(svc, 10)
@@ -120,7 +120,7 @@ func ExampleHandler_IdHandler() {
 	req := httptest.NewRequest(http.MethodGet, "/abc123", nil)
 	w := httptest.NewRecorder()
 
-	h.IdHandler(w, req)
+	h.IDHandler(w, req)
 
 	// The response contains a Location header with the original URL and status 307.
 	// Note: In this example, the ID is passed via URL param; in real usage it comes from chi.
