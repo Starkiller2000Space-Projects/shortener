@@ -1,3 +1,5 @@
+// Package server sets up the HTTP server with routes and middleware.
+
 package server
 
 import (
@@ -13,10 +15,16 @@ import (
 	"go.uber.org/zap"
 )
 
+// Server wraps an http.Server with pre-configured middleware and routes.
 type Server struct {
 	http.Server
 }
 
+// NewServer creates a new Server instance with the given address, handler, timeouts, auditor, and cookie secret.
+// It sets up chi router with all necessary middleware and routes:
+// - Recoverer, Gzip, Logger, Audit middleware for all routes.
+// - Public routes: /ping, /{id}
+// - Protected routes (with AuthMiddleware): POST /, /api/shorten, /api/shorten/batch, /api/user/urls (GET/DELETE).
 func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.Duration, auditor audit.Audit, cookieSecret string) *Server {
 	r := chi.NewRouter()
 
@@ -52,6 +60,8 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 	}
 }
 
+// ListenAndServe starts the HTTP server and logs the address.
+// Returns an error if the server cannot start.
 func (s *Server) ListenAndServe() error {
 	logger.Log.Info("Starting server", zap.String("address", s.Addr))
 	return s.Server.ListenAndServe()

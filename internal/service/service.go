@@ -1,3 +1,5 @@
+// Package service implements the core URL shortening business logic.
+
 package service
 
 import (
@@ -14,6 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
+// Service defines the business logic interface for URL shortening.
+//
 //go:generate mockery --name=Service --output=../handlers --outpkg=handlers --filename=mock_service_test.go --with-expecter --structname=MockService
 type Service interface {
 	CreateShortURL(ctx context.Context, original, scheme, host string) (string, error)
@@ -29,17 +33,21 @@ type Service interface {
 	DeleteUserURLs(ctx context.Context, userID string, shortIDs []string) error
 }
 
+// NewEndpointService creates a new service implementation with the given storage,
+// base URL for short links (showAddr), and ID size (number of characters).
 func NewEndpointService(storage repository.Storage, showAddr string, idSize int) Service {
 	return &endpointService{storage: storage, showAddr: showAddr, idSize: idSize}
 }
 
+// endpointService is the concrete implementation of Service.
 type endpointService struct {
 	storage  repository.Storage
 	showAddr string
 	idSize   int
 }
 
-// add url into storage and return generated id
+// getUrlFromId constructs a full short URL (with scheme and host) from a short ID.
+// Uses showAddr if configured, otherwise builds from scheme://host.
 func (service *endpointService) getUrlFromId(id, scheme, host string) (string, error) {
 	if scheme == "" {
 		scheme = "http"

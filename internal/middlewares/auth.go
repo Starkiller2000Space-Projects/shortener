@@ -1,3 +1,5 @@
+// Package middlewares provides HTTP middleware for logging, auth, gzip, and audit.
+
 package middlewares
 
 import (
@@ -11,6 +13,10 @@ import (
 	"go.uber.org/zap"
 )
 
+// AuthMiddleware returns a middleware that authenticates users via JWT cookies.
+// If the cookie is missing, it creates a new user ID and sets a new cookie.
+// If the cookie is invalid, it returns 401 Unauthorized.
+// It injects the user ID into the request context for downstream handlers.
 func AuthMiddleware(secretKey string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -1,3 +1,5 @@
+// Package audit implements an audit logging system with multiple observers.
+
 package audit
 
 import (
@@ -11,13 +13,14 @@ import (
 	"go.uber.org/zap"
 )
 
-// http audit observer
+// HTTPAuditObserver sends audit events as JSON POST requests to a specified URL.
 type HTTPAuditObserver struct {
 	url    string
 	client *http.Client
 }
 
-// get new http audit observer
+// NewHTTPAuditObserver creates a new HTTP audit observer with the given endpoint URL.
+// The HTTP client uses a 5-second timeout.
 func NewHTTPAuditObserver(url string) *HTTPAuditObserver {
 	return &HTTPAuditObserver{
 		url:    url,
@@ -25,7 +28,8 @@ func NewHTTPAuditObserver(url string) *HTTPAuditObserver {
 	}
 }
 
-// notify http audit observer
+// Notify sends the audit event to the configured URL via HTTP POST.
+// If the server returns a non-2xx status, an error is logged.
 func (h *HTTPAuditObserver) Notify(event models.AuditEvent) {
 	data, err := json.Marshal(event)
 	if err != nil {

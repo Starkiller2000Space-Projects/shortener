@@ -1,3 +1,5 @@
+// Package handlers implements HTTP endpoints for URL shortening and redirection.
+
 package handlers
 
 import (
@@ -14,6 +16,11 @@ import (
 	"go.uber.org/zap"
 )
 
+// ShortenJSONHandler handles POST /api/shorten – creates a short URL from JSON request.
+// Expects a JSON body: {"url": "..."}.
+// Returns 201 Created with JSON: {"result": "..."}.
+// If the URL already exists, returns 409 Conflict.
+// Records an audit shorten action.
 func (h *Handler) ShortenJSONHandler(w http.ResponseWriter, r *http.Request) {
 
 	var requestData models.ShortenRequest
@@ -56,6 +63,10 @@ func (h *Handler) ShortenJSONHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// PostBatchShortenHandler handles POST /api/shorten/batch – creates multiple short URLs.
+// Expects a JSON array of { "correlation_id": "...", "original_url": "..." }.
+// Returns 201 Created with a JSON array of { "correlation_id": "...", "short_url": "..." }.
+// If any URL is empty or the batch is empty, returns 400 Bad Request.
 func (h *Handler) PostBatchShortenHandler(w http.ResponseWriter, r *http.Request) {
 	var req []models.BatchShortenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -87,6 +98,9 @@ func (h *Handler) PostBatchShortenHandler(w http.ResponseWriter, r *http.Request
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+// GetUserURLsHandler handles GET /api/user/urls – returns all URLs created by the authenticated user.
+// Returns 200 OK with a JSON array of { "short_url": "...", "original_url": "..." }.
+// If the user has no URLs, returns 204 No Content.
 func (h *Handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 	scheme := r.Header.Get("X-Forwarded-Proto")
 	if scheme == "" {
@@ -109,7 +123,10 @@ func (h *Handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// delete user urls
+// DeleteUserURLsHandler handles DELETE /api/user/urls – marks URLs as deleted for the authenticated user.
+// Expects a JSON array of short IDs.
+// Returns 202 Accepted immediately, and the deletion is performed asynchronously.
+// If the request body is empty, returns 202 Accepted without deleting anything.
 func (h *Handler) DeleteUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 	userID, ok := requests.GetUserIDFromContext(r.Context())
 	if !ok {

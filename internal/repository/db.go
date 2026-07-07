@@ -1,3 +1,5 @@
+// Package repository defines storage interfaces and implementations (memory, file, DB).
+
 package repository
 
 import (
@@ -16,6 +18,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"       // required for migrations
 )
 
+// dbStorage is an implementation of Storage backed by a PostgreSQL database.
 type dbStorage struct {
 	storage *sql.DB
 	config  *db.DBConf
@@ -37,7 +40,8 @@ func NewDBStorage(config *db.DBConf) (*dbStorage, error) {
 	return dbs, nil
 }
 
-// run database migrations
+// runMigrations applies all pending migrations using golang-migrate.
+// Returns an error if migration fails (or if no change and not ErrNoChange).
 func (dbs *dbStorage) runMigrations() error {
 	logger.Log.Info("Running migrations", zap.String("path", dbs.config.MigrationsPath))
 	m, err := migrate.New(
@@ -113,6 +117,8 @@ func (dbs *dbStorage) AddBatch(ctx context.Context, items []Row) error {
 	return nil
 }
 
+// buildBatchInsertQuery constructs a SQL INSERT query for multiple rows.
+// Returns the query string and the argument slice.
 func (dbs *dbStorage) buildBatchInsertQuery(items []Row) (string, []any) {
 	var b strings.Builder
 	b.WriteString(`INSERT INTO urls(id, original_url, user_id, is_deleted) VALUES `)

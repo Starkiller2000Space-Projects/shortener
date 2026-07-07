@@ -1,3 +1,5 @@
+// Package middlewares provides HTTP middleware for logging, auth, gzip, and audit.
+
 package middlewares
 
 import (
@@ -10,10 +12,15 @@ import (
 	"go.uber.org/zap"
 )
 
+// responseDataPool reuses responseData objects to reduce allocations.
 var responseDataPool = sync.Pool{
 	New: func() any { return &responseData{} },
 }
 
+// LoggerMiddleware returns a middleware that logs each HTTP request with details:
+// URI, method, status code, duration, and response size.
+// It uses the global logger (logger.Log) at Info level.
+// The middleware stores response data using a custom loggingResponseWriter.
 func LoggerMiddleware(h http.Handler) http.Handler {
 	logFn := func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -42,18 +49,21 @@ func LoggerMiddleware(h http.Handler) http.Handler {
 }
 
 type (
-	responseData struct { // response data storage
+	// responseData stores the status code and response size for logging purposes.
+	responseData struct {
 		status int
 		size   int
 	}
 
-	// response data writer
+	// loggingResponseWriter wraps an http.ResponseWriter and records
+	// the status code and number of bytes written.
 	loggingResponseWriter struct {
 		http.ResponseWriter
 		responseData *responseData
 	}
 )
 
+// Write writes the response data and records the number of bytes written.
 func (r *loggingResponseWriter) Write(b []byte) (int, error) {
 	size, err := r.ResponseWriter.Write(b)
 	r.responseData.size += size
@@ -63,6 +73,7 @@ func (r *loggingResponseWriter) Write(b []byte) (int, error) {
 	return size, err
 }
 
+// WriteHeader records the status code and then writes it to the underlying ResponseWriter.
 func (r *loggingResponseWriter) WriteHeader(statusCode int) {
 	r.ResponseWriter.WriteHeader(statusCode)
 	r.responseData.status = statusCode

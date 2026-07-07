@@ -1,3 +1,5 @@
+// Package repository defines storage interfaces and implementations (memory, file, DB).
+
 package repository
 
 import (
@@ -10,6 +12,7 @@ import (
 	"path/filepath"
 )
 
+// fileRecord is the JSON structure used for storing a single URL in the file.
 type fileRecord struct {
 	ShortURL    string `json:"short_url"`
 	OriginalURL string `json:"original_url"`
@@ -17,11 +20,16 @@ type fileRecord struct {
 	Deleted     bool   `json:"deleted"`
 }
 
+// fileStorage is an implementation of Storage that persists data to a file.
+// It embeds memStorage and synchronizes writes to disk.
 type fileStorage struct {
 	*memStorage
 	filePath string
 }
 
+// NewFileStorage creates a new file-based storage instance.
+// It loads existing data from the file (if present) into memory.
+// Returns an error if the file cannot be read or parsed.
 func NewFileStorage(filePath string) (*fileStorage, error) {
 	mem, err := NewMemStorage()
 	if err != nil {
@@ -37,6 +45,8 @@ func NewFileStorage(filePath string) (*fileStorage, error) {
 	return fs, nil
 }
 
+// load reads the file and populates the in-memory maps.
+// If the file does not exist, it does nothing (no error).
 func (fs *fileStorage) load() error {
 	f, err := os.Open(fs.filePath)
 	if err != nil {
@@ -78,6 +88,8 @@ func (fs *fileStorage) load() error {
 	return nil
 }
 
+// save rewrites the entire file with the current in-memory data.
+// Used for full rebuilds (e.g., after deletion).
 func (fs *fileStorage) save() error {
 	records := make([]fileRecord, 0, len(fs.data))
 	for short, info := range fs.data {
@@ -93,6 +105,8 @@ func (fs *fileStorage) save() error {
 	return encoder.Encode(records)
 }
 
+// appendRecords appends one or more file records to the end of the file.
+// Used for batch inserts.
 func (fs *fileStorage) appendRecords(recs []fileRecord) error {
 	if len(recs) == 0 {
 		return nil
@@ -115,7 +129,8 @@ func (fs *fileStorage) appendRecords(recs []fileRecord) error {
 	return err
 }
 
-// add url into storage and return generated id
+// add is the internal version of Add without locking.
+// It assumes the caller holds the mutex.
 func (fs *fileStorage) add(info Row) error {
 	err := fs.memStorage.add(info)
 	if err != nil {
@@ -172,7 +187,8 @@ func (fs *fileStorage) Ping(ctx context.Context) error {
 	}
 }
 
-// add multiple values as batch
+// addBatch is the internal version of AddBatch without locking.
+// It assumes the caller holds the mutex.
 func (fs *fileStorage) addBatch(items []Row) error {
 	file, err := os.OpenFile(fs.filePath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
@@ -214,7 +230,8 @@ func (fs *fileStorage) AddBatch(ctx context.Context, items []Row) error {
 	return fs.addBatch(items)
 }
 
-// delete batch by user id and short ids
+// deleteBatch is the internal version of DeleteBatch without locking.
+// It assumes the caller holds the mutex.
 func (fs *fileStorage) deleteBatch(userID string, shortIDs []string) error {
 	for _, id := range shortIDs {
 		if info, ok := fs.data[id]; ok && info.userID == userID {

@@ -1,3 +1,5 @@
+// Package audit implements an audit logging system with multiple observers.
+
 package audit
 
 import (
@@ -10,18 +12,20 @@ import (
 	"go.uber.org/zap"
 )
 
-// file audit observer
+// FileAuditObserver writes audit events to a file in JSON format,
+// appending each event as a new line.
 type FileAuditObserver struct {
 	filePath string
 	mu       sync.Mutex
 }
 
-// get new file audit observer
+// NewFileAuditObserver creates a new file audit observer with the given file path.
 func NewFileAuditObserver(path string) *FileAuditObserver {
 	return &FileAuditObserver{filePath: path}
 }
 
-// notify in file
+// Notify writes the audit event to the file.
+// It acquires a lock to ensure thread-safety and logs errors if writing fails.
 func (f *FileAuditObserver) Notify(event models.AuditEvent) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

@@ -9,6 +9,9 @@ test:
 	go tool cover -func=coverage.out | grep total
 	go tool cover -html=coverage.out -o coverage.html
 
+doc:
+	go doc -http :6060
+
 run-client:
 	go run ./cmd/client/main.go
 

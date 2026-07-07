@@ -1,3 +1,5 @@
+// Package service implements the core URL shortening business logic.
+
 package service
 
 import (

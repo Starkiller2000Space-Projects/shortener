@@ -1,3 +1,5 @@
+// Package middlewares provides HTTP middleware for logging, auth, gzip, and audit.
+
 package middlewares
 
 import (
@@ -11,6 +13,10 @@ import (
 	"github.com/max-marek-projects/shortener/internal/requests"
 )
 
+// AuditMiddleware returns a middleware that captures audit data from the request context
+// and notifies all registered audit observers after the request is handled.
+// It injects a *models.AuditData into the request context under the audit.AuditKey.
+// The middleware logs a debug message when audit data is received.
 func AuditMiddleware(auditor audit.Audit) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		auditFn := func(w http.ResponseWriter, r *http.Request) {

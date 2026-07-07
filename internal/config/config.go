@@ -1,3 +1,5 @@
+// Package config handles application configuration from flags, env, and .env.
+
 package config
 
 import (
@@ -10,6 +12,9 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// Config holds all configuration parameters for the application.
+// Values are populated from environment variables, .env file, and command-line flags.
+// Flags take precedence over environment variables.
 type Config struct {
 	RunAddr            string        `env:"SERVER_ADDRESS"`       // address and port to run server
 	ShowAddr           string        `env:"BASE_URL"`             // address and port to show for short urls
@@ -25,7 +30,11 @@ type Config struct {
 	AuditURL           string        `env:"AUDIT_URL"`            // audit service url
 }
 
-// parse all flags from command line
+// LoadConfig parses configuration from .env file, environment variables,
+// and command-line flags. Flags take precedence over environment variables.
+// Returns a pointer to the populated Config struct.
+// If .env is missing, it continues with environment variables and flags.
+// If parsing fails, it logs a fatal error.
 func LoadConfig() *Config {
 	var config Config
 
