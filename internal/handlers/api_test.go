@@ -73,7 +73,7 @@ func TestShortenJSONHandler(t *testing.T) {
 			request: `{"url":""}`,
 			service: &serviceData{
 				value: "",
-				err:   service.ErrorEmptyUrl,
+				err:   service.ErrEmptyURL,
 			},
 			audit: true,
 			want: want{
@@ -87,7 +87,7 @@ func TestShortenJSONHandler(t *testing.T) {
 			request: `{"url":"https://www.example2.com/"}`,
 			service: &serviceData{
 				value: "",
-				err:   service.ErrorDuplicate,
+				err:   service.ErrDuplicate,
 			},
 			audit: true,
 			want: want{
@@ -134,6 +134,7 @@ func TestShortenJSONHandler(t *testing.T) {
 			defer ts.Close()
 			// make request
 			resp, body := testRequest(t, ts, test.method, "/api/shorten", test.request)
+			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 			if !test.want.success {
 				return
@@ -243,7 +244,7 @@ func TestPostBatchShortenHandler(t *testing.T) {
 			request: `[{"correlation_id": "1", "original_url": ""},{"correlation_id": "2", "original_url": "https://www.example1.com/"}]`,
 			service: &serviceData{
 				value: nil,
-				err:   service.ErrorEmptyUrl,
+				err:   service.ErrEmptyURL,
 			},
 			want: want{
 				code:    http.StatusBadRequest,
@@ -256,7 +257,7 @@ func TestPostBatchShortenHandler(t *testing.T) {
 			request: `[{"correlation_id": "1", "original_url": "https://www.example0.com/"},{"correlation_id": "2", "original_url": "https://www.example1.com/"}]`,
 			service: &serviceData{
 				value: nil,
-				err:   fmt.Errorf("Unknown error"),
+				err:   fmt.Errorf("unknown error"),
 			},
 			want: want{
 				code:    http.StatusInternalServerError,
@@ -277,6 +278,7 @@ func TestPostBatchShortenHandler(t *testing.T) {
 			ts := httptest.NewServer(newTestRouter(mockService, false, false))
 			defer ts.Close()
 			resp, body := testRequest(t, ts, test.method, "/api/shorten/batch", test.request)
+			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 			if !test.want.success {
 				return
@@ -402,6 +404,7 @@ func TestGetUserURLsHandler(t *testing.T) {
 			ts := httptest.NewServer(newTestRouter(mockService, false, false))
 			defer ts.Close()
 			resp, body := testRequest(t, ts, test.method, "/api/user/urls", "")
+			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 			if !test.want.success {
 				return
@@ -531,6 +534,7 @@ func TestDeleteUserURLsHandler(t *testing.T) {
 			ts := httptest.NewServer(newTestRouter(mockService, false, test.auth))
 			defer ts.Close()
 			resp, _ := testRequest(t, ts, test.method, "/api/user/urls", test.request)
+			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 		})
 	}

@@ -76,11 +76,11 @@ func (h *Handler) PostURLHandler(w http.ResponseWriter, r *http.Request) {
 	auditData.URL = originalURL
 	shortURL, err := h.service.CreateShortURL(r.Context(), originalURL, r.Header.Get("X-Forwarded-Proto"), r.Host)
 	if err != nil {
-		if errors.Is(err, service.ErrorEmptyUrl) {
+		if errors.Is(err, service.ErrEmptyURL) {
 			http.Error(w, "Empty url", http.StatusBadRequest)
 			return
 		}
-		if errors.Is(err, service.ErrorDuplicate) {
+		if errors.Is(err, service.ErrDuplicate) {
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(http.StatusConflict)
 			w.Write([]byte(shortURL))

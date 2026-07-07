@@ -36,9 +36,9 @@ func TestAuthMiddleware_Unauthorized(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
-		contextUserId, ok := requests.GetUserIDFromContext(r.Context())
+		contextUserID, ok := requests.GetUserIDFromContext(r.Context())
 		assert.True(t, ok)
-		assert.NotEqual(t, contextUserId, "")
+		assert.NotEqual(t, contextUserID, "")
 	})
 	authHandler := AuthMiddleware(testSecretKey)(handler)
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -94,7 +94,9 @@ func BenchmarkAuthMiddleware_ExistingUser(b *testing.B) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	w := httptest.NewRecorder()
 	handler.ServeHTTP(w, req)
-	cookie := w.Result().Cookies()[0]
+	response := w.Result()
+	defer response.Body.Close()
+	cookie := response.Cookies()[0]
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

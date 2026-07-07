@@ -46,7 +46,7 @@ func GetStorage(cfg *config.Config) (Storage, error) {
 		storage, err = NewMemStorage()
 	}
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create storage: %w", err)
+		return nil, fmt.Errorf("failed to create storage: %w", err)
 	}
 	return storage, nil
 }

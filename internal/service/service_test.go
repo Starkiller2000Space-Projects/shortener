@@ -80,7 +80,7 @@ func TestService_CreateShortURL(t *testing.T) {
 			addError:    nil,
 			want: want{
 				short: "",
-				err:   ErrorEmptyUrl,
+				err:   ErrEmptyURL,
 			},
 		},
 	}

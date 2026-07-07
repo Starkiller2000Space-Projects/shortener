@@ -11,7 +11,7 @@ import (
 var ErrNotFound = errors.New("url not found")
 
 // ErrMutuallyExclusiveFlags is returned when both database and file storage flags are provided.
-var ErrMutuallyExclusiveFlags = errors.New("Mutually exclusive flags received")
+var ErrMutuallyExclusiveFlags = errors.New("mutually exclusive flags received")
 
 // ErrGone is returned when a requested URL has been deleted (is_deleted=true).
 var ErrGone = errors.New("url has been deleted")

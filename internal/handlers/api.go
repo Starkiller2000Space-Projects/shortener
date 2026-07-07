@@ -39,11 +39,11 @@ func (h *Handler) ShortenJSONHandler(w http.ResponseWriter, r *http.Request) {
 	auditData.URL = requestData.URL
 	shortURL, err := h.service.CreateShortURL(r.Context(), requestData.URL, r.Header.Get("X-Forwarded-Proto"), r.Host)
 	if err != nil {
-		if errors.Is(err, service.ErrorEmptyUrl) {
+		if errors.Is(err, service.ErrEmptyURL) {
 			http.Error(w, "Empty url", http.StatusBadRequest)
 			return
 		}
-		if errors.Is(err, service.ErrorDuplicate) {
+		if errors.Is(err, service.ErrDuplicate) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusConflict)
 			json.NewEncoder(w).Encode(models.ShortenResponse{Result: shortURL})
@@ -85,7 +85,7 @@ func (h *Handler) PostBatchShortenHandler(w http.ResponseWriter, r *http.Request
 	)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrorEmptyUrl), errors.Is(err, service.ErrorEmptyBatch):
+		case errors.Is(err, service.ErrEmptyURL), errors.Is(err, service.ErrEmptyBatch):
 			http.Error(w, "Empty url", http.StatusBadRequest)
 		default:
 			logger.Log.Error("Failed to create short URLs for batch", zap.Error(err))

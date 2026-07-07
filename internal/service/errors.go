@@ -6,6 +6,6 @@ import (
 	"errors"
 )
 
-var ErrorEmptyUrl = errors.New("Url is empty or contains only whitespace characters")
-var ErrorEmptyBatch = errors.New("Empty batch received")
-var ErrorDuplicate = errors.New("url already exists")
+var ErrEmptyURL = errors.New("url is empty or contains only whitespace characters")
+var ErrEmptyBatch = errors.New("empty batch received")
+var ErrDuplicate = errors.New("url already exists")

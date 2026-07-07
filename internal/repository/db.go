@@ -27,7 +27,7 @@ type dbStorage struct {
 func NewDBStorage(config *db.DBConf) (*dbStorage, error) {
 	storage, err := db.Connect(config)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create DB storage: %w", err)
+		return nil, fmt.Errorf("failed to create DB storage: %w", err)
 	}
 	dbs := &dbStorage{
 		storage: storage,
@@ -35,7 +35,7 @@ func NewDBStorage(config *db.DBConf) (*dbStorage, error) {
 	}
 	err = dbs.runMigrations()
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create DB storage: %w", err)
+		return nil, fmt.Errorf("failed to create DB storage: %w", err)
 	}
 	return dbs, nil
 }
@@ -49,11 +49,11 @@ func (dbs *dbStorage) runMigrations() error {
 		dbs.config.URL,
 	)
 	if err != nil {
-		return fmt.Errorf("Failed to run migrations: %w", err)
+		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 	defer m.Close()
 	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
-		return fmt.Errorf("Failed to run migrations: %w", err)
+		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 	return nil
 }
@@ -70,7 +70,7 @@ func (dbs *dbStorage) Add(ctx context.Context, info Row) error {
 	`
 	err := dbs.storage.QueryRowContext(ctx, query, info.ID, info.OriginalURL, info.UserID).Scan(&existingID)
 	if err != nil {
-		return fmt.Errorf("Failed to add url to storage: %w", err)
+		return fmt.Errorf("failed to add url to storage: %w", err)
 	}
 	if existingID != info.ID {
 		return &ErrAlreadyExists{ExistingID: existingID}
@@ -92,7 +92,7 @@ func (dbs *dbStorage) Get(ctx context.Context, id string) (string, error) {
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", ErrNotFound
 		}
-		return "", fmt.Errorf("Failed to get url from storage by id: %w", err)
+		return "", fmt.Errorf("failed to get url from storage by id: %w", err)
 	}
 	if is_deleted {
 		return "", fmt.Errorf("%w: %s", ErrGone, id)

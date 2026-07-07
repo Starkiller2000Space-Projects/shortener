@@ -194,6 +194,7 @@ func TestIDHandler(t *testing.T) {
 			ts := httptest.NewServer(newTestRouter(mockService, test.audit, false))
 			defer ts.Close()
 			resp, _ := testRequest(t, ts, test.method, fmt.Sprintf("/%v", fixedID), "")
+			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 			assert.Equal(t, test.want.contentType, resp.Header.Get("Content-Type"))
 			assert.Equal(t, test.want.location, resp.Header.Get("Location"))
@@ -299,7 +300,7 @@ func TestPostURLHandler(t *testing.T) {
 			method: http.MethodPost,
 			service: &serviceData{
 				value: "",
-				err:   service.ErrorEmptyUrl,
+				err:   service.ErrEmptyURL,
 			},
 			request: "https://www.example0.com/",
 			audit:   true,
@@ -315,7 +316,7 @@ func TestPostURLHandler(t *testing.T) {
 			method: http.MethodPost,
 			service: &serviceData{
 				value: "",
-				err:   service.ErrorDuplicate,
+				err:   service.ErrDuplicate,
 			},
 			request: "https://www.example0.com/",
 			audit:   true,
@@ -354,6 +355,7 @@ func TestPostURLHandler(t *testing.T) {
 			ts := httptest.NewServer(newTestRouter(mockService, test.audit, false))
 			defer ts.Close()
 			resp, body := testRequest(t, ts, test.method, "/", test.request)
+			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 			if !test.want.success {
 				return
@@ -450,6 +452,7 @@ func TestPingHandler(t *testing.T) {
 			ts := httptest.NewServer(newTestRouter(mockService, false, false))
 			defer ts.Close()
 			resp, _ := testRequest(t, ts, test.method, "/ping", "")
+			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 		})
 	}

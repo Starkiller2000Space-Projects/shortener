@@ -40,7 +40,7 @@ func NewFileStorage(filePath string) (*fileStorage, error) {
 		filePath:   filePath,
 	}
 	if err := fs.load(); err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("Failed to create file storage: %w", err)
+		return nil, fmt.Errorf("failed to create file storage: %w", err)
 	}
 	return fs, nil
 }
@@ -97,7 +97,7 @@ func (fs *fileStorage) save() error {
 	}
 	f, err := os.Create(fs.filePath)
 	if err != nil {
-		return fmt.Errorf("Failed to save storage file: %w", err)
+		return fmt.Errorf("failed to save storage file: %w", err)
 	}
 	defer f.Close()
 	encoder := json.NewEncoder(f)
@@ -147,7 +147,7 @@ func (fs *fileStorage) add(info Row) error {
 	if err := fs.appendRecords(recs); err != nil {
 		delete(fs.data, info.ID) // undo on error
 		delete(fs.urlToID, info.OriginalURL)
-		return fmt.Errorf("Failed to add data to storage file: %w", err)
+		return fmt.Errorf("failed to add data to storage file: %w", err)
 	}
 	return nil
 }
@@ -169,7 +169,7 @@ func (fs *fileStorage) Ping(ctx context.Context) error {
 	if _, err := os.Stat(fs.filePath); err == nil {
 		f, err := os.Open(fs.filePath)
 		if err != nil {
-			return fmt.Errorf("Failed to check storage file: %w", err)
+			return fmt.Errorf("failed to check storage file: %w", err)
 		}
 		f.Close()
 		return nil
@@ -177,13 +177,13 @@ func (fs *fileStorage) Ping(ctx context.Context) error {
 		dir := filepath.Dir(fs.filePath)
 		tmp, err := os.CreateTemp(dir, "ping_test_*") // create temporary file in order to check permissions
 		if err != nil {
-			return fmt.Errorf("Failed to check storage file: %w", err)
+			return fmt.Errorf("failed to check storage file: %w", err)
 		}
 		tmp.Close()
 		os.Remove(tmp.Name())
 		return nil
 	} else {
-		return fmt.Errorf("Failed to check storage file: %w", err)
+		return fmt.Errorf("failed to check storage file: %w", err)
 	}
 }
 
@@ -192,7 +192,7 @@ func (fs *fileStorage) Ping(ctx context.Context) error {
 func (fs *fileStorage) addBatch(items []Row) error {
 	file, err := os.OpenFile(fs.filePath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 	if err != nil {
-		return fmt.Errorf("Failed to add batch to file: %w", err)
+		return fmt.Errorf("failed to add batch to file: %w", err)
 	}
 	defer file.Close()
 	err = fs.memStorage.addBatch(items)
@@ -213,7 +213,7 @@ func (fs *fileStorage) addBatch(items []Row) error {
 			delete(fs.data, item.ID) // undo on error
 			delete(fs.urlToID, item.OriginalURL)
 		}
-		return fmt.Errorf("Failed to add batch to file: %w", err)
+		return fmt.Errorf("failed to add batch to file: %w", err)
 	}
 	return nil
 }
