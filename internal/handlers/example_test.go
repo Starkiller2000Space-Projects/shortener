@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/max-marek-projects/shortener/internal/audit"
 	"github.com/max-marek-projects/shortener/internal/handlers"
 	"github.com/max-marek-projects/shortener/internal/models"
 	"github.com/max-marek-projects/shortener/internal/repository"
@@ -64,6 +65,7 @@ func ExampleHandler_PostURLHandler() {
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte("https://example.com")))
 	w := httptest.NewRecorder()
 
+	req = req.WithContext(audit.SetAuditDataToContext(req.Context(), &models.AuditData{}))
 	h.PostURLHandler(w, req)
 
 	// In a real scenario, the response body would contain the shortened URL.
@@ -83,6 +85,7 @@ func ExampleHandler_ShortenJSONHandler() {
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
+	req = req.WithContext(audit.SetAuditDataToContext(req.Context(), &models.AuditData{}))
 	h.ShortenJSONHandler(w, req)
 
 	// The response is JSON with the "result" field containing the short URL.
@@ -120,6 +123,7 @@ func ExampleHandler_IDHandler() {
 	req := httptest.NewRequest(http.MethodGet, "/abc123", nil)
 	w := httptest.NewRecorder()
 
+	req = req.WithContext(audit.SetAuditDataToContext(req.Context(), &models.AuditData{}))
 	h.IDHandler(w, req)
 
 	// The response contains a Location header with the original URL and status 307.

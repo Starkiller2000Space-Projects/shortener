@@ -27,8 +27,8 @@ func BenchmarkLoggerMiddleware(b *testing.B) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
 	handler := LoggerMiddleware(next)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 	}

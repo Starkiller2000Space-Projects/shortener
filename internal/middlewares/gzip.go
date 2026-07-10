@@ -113,6 +113,10 @@ func (c *compressReader) Close() error {
 	if err != nil {
 		return fmt.Errorf("failed to close gzip reader: %w", err)
 	}
+	err = c.r.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close request: %w", err)
+	}
 	c.r = nil
 	c.zr = nil
 	compressReaderPool.Put(c)

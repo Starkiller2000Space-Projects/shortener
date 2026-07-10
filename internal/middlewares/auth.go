@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/max-marek-projects/shortener/internal/audit"
 	"github.com/max-marek-projects/shortener/internal/auth"
 	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/max-marek-projects/shortener/internal/requests"
@@ -39,6 +40,10 @@ func AuthMiddleware(secretKey string) func(http.Handler) http.Handler {
 				}
 			}
 			// now err is nil, userID is valid
+			auditData, ok := audit.GetAuditDataFromContext(r.Context())
+			if ok {
+				auditData.UserID = userID
+			}
 			ctx := requests.SetUserIDToContext(r.Context(), userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

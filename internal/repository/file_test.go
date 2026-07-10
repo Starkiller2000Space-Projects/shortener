@@ -62,8 +62,8 @@ func BenchmarkFileStorageAdd(b *testing.B) {
 		OriginalURL: "https://example.com",
 		UserID:      "user",
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		data.ID = utils.GenerateID(8)
 		_ = storage.Add(ctx, data)
 	}
@@ -76,8 +76,8 @@ func BenchmarkFileStorageGet(b *testing.B) {
 	ctx := context.Background()
 	id := "existing"
 	_ = storage.Add(ctx, Row{ID: id, OriginalURL: "https://example.com", UserID: "user"})
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_, _ = storage.Get(ctx, id)
 	}
 }
@@ -166,8 +166,8 @@ func BenchmarkFileStorageAddBatch(b *testing.B) {
 			UserID:      "user",
 		}
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for j := range items {
 			items[j].ID = utils.GenerateID(8)
 		}
@@ -188,8 +188,8 @@ func BenchmarkFileStorageGetUserURLs(b *testing.B) {
 			UserID:      userID,
 		})
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_, _ = storage.GetUserURLs(ctx, userID)
 	}
 }
@@ -249,8 +249,8 @@ func BenchmarkFileStorageDeleteBatch(b *testing.B) {
 		ids[i] = id
 		_ = storage.Add(ctx, Row{ID: id, OriginalURL: "https://example.com", UserID: userID})
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = storage.DeleteBatch(ctx, userID, ids)
 		for _, id := range ids {
 			_ = storage.Add(ctx, Row{ID: id, OriginalURL: "https://example.com", UserID: userID})

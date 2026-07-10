@@ -14,7 +14,7 @@ import (
 // Storage defines the interface for URL storage backends.
 // Implementations must be safe for concurrent use.
 //
-//go:generate mockery --name=Storage --output=../service  --outpkg=service --filename=mock_storage_test.go --with-expecter --structname=MockStorage
+//go:generate mockery --name=Storage --output=../service  --outpkg=service --filename=mock_storage_test.gen.go --with-expecter --structname=MockStorage
 type Storage interface {
 	Add(ctx context.Context, info Row) error
 	Get(ctx context.Context, id string) (string, error)

@@ -13,6 +13,7 @@ const (
 type AuditData struct {
 	Action AuditAction
 	URL    string
+	UserID string
 }
 
 // AuditEvent represents an audit log entry.

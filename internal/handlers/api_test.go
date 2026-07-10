@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -163,11 +162,10 @@ func BenchmarkShortenJSONHandler(b *testing.B) {
 	reqData := models.ShortenRequest{URL: "https://example.com"}
 	jsonBody, _ := json.Marshal(reqData)
 	req := httptest.NewRequest(http.MethodPost, "/api/shorten", io.NopCloser(bytes.NewReader(jsonBody)))
-	req = req.WithContext(context.WithValue(requests.SetUserIDToContext(req.Context(), "user123"), audit.AuditKey, &models.AuditData{}))
+	req = req.WithContext(audit.SetAuditDataToContext(requests.SetUserIDToContext(req.Context(), "user123"), &models.AuditData{}))
 	w := httptest.NewRecorder()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req.Body = io.NopCloser(bytes.NewReader(jsonBody))
 		handler.ShortenJSONHandler(w, req)
 		w.Flush()
@@ -316,8 +314,7 @@ func BenchmarkPostBatchShortenHandler(b *testing.B) {
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
 	w := httptest.NewRecorder()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req.Body = io.NopCloser(bytes.NewReader(jsonBody))
 		handler.PostBatchShortenHandler(w, req)
 		w.Flush()
@@ -435,8 +432,7 @@ func BenchmarkGetUserURLsHandler(b *testing.B) {
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
 	w := httptest.NewRecorder()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		handler.GetUserURLsHandler(w, req)
 		w.Flush()
 	}
@@ -551,8 +547,7 @@ func BenchmarkDeleteUserURLsHandler(b *testing.B) {
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
 	w := httptest.NewRecorder()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req.Body = io.NopCloser(bytes.NewReader(jsonBody))
 		handler.DeleteUserURLsHandler(w, req)
 		w.Flush()

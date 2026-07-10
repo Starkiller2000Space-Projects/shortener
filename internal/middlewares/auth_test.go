@@ -78,9 +78,8 @@ func BenchmarkAuthMiddleware_NewUser(b *testing.B) {
 	handler := AuthMiddleware(secret)(next)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 	}
@@ -98,8 +97,7 @@ func BenchmarkAuthMiddleware_ExistingUser(b *testing.B) {
 	defer response.Body.Close()
 	cookie := response.Cookies()[0]
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req2 := httptest.NewRequest(http.MethodGet, "/", nil)
 		req2.AddCookie(cookie)
 		w2 := httptest.NewRecorder()

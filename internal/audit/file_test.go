@@ -17,7 +17,9 @@ func TestFileAuditObserver_Notify(t *testing.T) {
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "audit.log")
 	// create observer
-	observer := NewFileAuditObserver(filePath)
+	observer, err := NewFileAuditObserver(filePath)
+	defer observer.Stop()
+	require.NoError(t, err)
 	// notify
 	event := models.AuditEvent{
 		Timestamp: 1234567890,

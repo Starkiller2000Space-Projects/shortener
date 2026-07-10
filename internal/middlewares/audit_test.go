@@ -3,6 +3,7 @@ package middlewares
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/max-marek-projects/shortener/internal/audit"
@@ -15,7 +16,7 @@ import (
 
 func TestAuditMiddleware_Notify(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		auditData, ok := r.Context().Value(audit.AuditKey).(*models.AuditData)
+		auditData, ok := audit.GetAuditDataFromContext(r.Context())
 		if !ok {
 			logger.Log.Error("No audit data in context")
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -29,7 +30,7 @@ func TestAuditMiddleware_Notify(t *testing.T) {
 	testUserID := "user123"
 
 	mockAuditor := NewMockAudit(t)
-	mockAuditor.EXPECT().NotifyAll(mock.Anything).Once()
+	mockAuditor.EXPECT().NotifyAll(mock.Anything).Return((*sync.WaitGroup)(nil)).Once()
 
 	auditHandler := AuditMiddleware(mockAuditor)(handler)
 
@@ -67,9 +68,9 @@ func TestAuditMiddleware_DoNothing(t *testing.T) {
 
 func BenchmarkAuditMiddleware(b *testing.B) {
 	auditor := NewMockAudit(b)
-	auditor.EXPECT().NotifyAll(mock.Anything).Return()
+	auditor.EXPECT().NotifyAll(mock.Anything).Return(nil)
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if data, ok := r.Context().Value(audit.AuditKey).(*models.AuditData); ok {
+		if data, ok := audit.GetAuditDataFromContext(r.Context()); ok {
 			data.Action = models.AuditShorten
 			data.URL = "http://example.com"
 		}
@@ -78,9 +79,8 @@ func BenchmarkAuditMiddleware(b *testing.B) {
 	handler := AuditMiddleware(auditor)(next)
 
 	req := httptest.NewRequest(http.MethodPost, "/", nil)
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 	}

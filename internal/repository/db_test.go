@@ -73,9 +73,8 @@ func BenchmarkDBStorageAdd(b *testing.B) {
 	defer cleanup()
 
 	ctx := context.Background()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		id := utils.GenerateID(8)
 		row := Row{
 			ID:          id,
@@ -101,8 +100,7 @@ func BenchmarkDBStorageGet(b *testing.B) {
 		b.Fatalf("failed to add initial row: %v", err)
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := storage.Get(ctx, id)
 		if err != nil {
 			b.Fatalf("Get failed: %v", err)
@@ -227,8 +225,7 @@ func BenchmarkDBStorageGetUserURLs(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := storage.GetUserURLs(ctx, userID)
 		if err != nil {
 			b.Fatalf("GetUserURLs failed: %v", err)
@@ -283,8 +280,7 @@ func BenchmarkDBStorageDeleteBatch(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		err := storage.DeleteBatch(ctx, userID, ids)
 		if err != nil {
 			b.Fatalf("DeleteBatch failed: %v", err)

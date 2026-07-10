@@ -60,9 +60,8 @@ func BenchmarkGzipMiddleware_NoCompression(b *testing.B) {
 	handler := GzipMiddleware(next)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 	}
@@ -77,9 +76,8 @@ func BenchmarkGzipMiddleware_WithAcceptGzip(b *testing.B) {
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.Header.Set("Accept-Encoding", "gzip")
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 	}
@@ -99,9 +97,8 @@ func BenchmarkGzipMiddleware_WithGzipBody(b *testing.B) {
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 	req.Header.Set("Content-Encoding", "gzip")
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		w := httptest.NewRecorder()
 		req.Body = io.NopCloser(bytes.NewReader(body))
 		handler.ServeHTTP(w, req)

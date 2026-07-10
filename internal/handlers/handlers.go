@@ -43,7 +43,7 @@ func (h *Handler) IDHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Wrong id", http.StatusBadRequest)
 		return
 	}
-	auditData, ok := r.Context().Value(audit.AuditKey).(*models.AuditData)
+	auditData, ok := audit.GetAuditDataFromContext(r.Context())
 	if !ok {
 		logger.Log.Error("No audit data in context")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -66,7 +66,7 @@ func (h *Handler) PostURLHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	originalURL := string(body)
-	auditData, ok := r.Context().Value(audit.AuditKey).(*models.AuditData)
+	auditData, ok := audit.GetAuditDataFromContext(r.Context())
 	if !ok {
 		logger.Log.Error("No audit data in context")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

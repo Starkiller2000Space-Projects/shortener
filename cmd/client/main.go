@@ -11,6 +11,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/hashicorp/go-retryablehttp"
 )
 
 // makeRequest creates an HTTP POST request with form-encoded data.
@@ -31,16 +33,23 @@ type HTTPClient struct {
 
 // NewHTTPClient creates a new HTTP client with connection pooling and timeouts.
 func NewHTTPClient() *HTTPClient {
+	retryClient := retryablehttp.NewClient()
+	retryClient.RetryMax = 3
+	retryClient.RetryWaitMin = 1 * time.Second
+	retryClient.RetryWaitMax = 5 * time.Second
+
 	transport := &http.Transport{
 		MaxIdleConns:        100,
 		IdleConnTimeout:     90 * time.Second,
 		TLSHandshakeTimeout: 10 * time.Second,
 	}
+	retryClient.HTTPClient.Transport = transport
+	retryClient.HTTPClient.Timeout = 30 * time.Second
+
+	stdClient := retryClient.StandardClient()
+
 	return &HTTPClient{
-		Client: &http.Client{
-			Timeout:   30 * time.Second,
-			Transport: transport,
-		},
+		Client: stdClient,
 	}
 }
 

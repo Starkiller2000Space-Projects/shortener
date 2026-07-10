@@ -25,11 +25,11 @@ func (h *Handler) ShortenJSONHandler(w http.ResponseWriter, r *http.Request) {
 
 	var requestData models.ShortenRequest
 	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
-		logger.Log.Error("cannot decode request JSON body", zap.Error(err))
+		logger.Log.Debug("cannot decode request JSON body", zap.Error(err))
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
-	auditData, ok := r.Context().Value(audit.AuditKey).(*models.AuditData)
+	auditData, ok := audit.GetAuditDataFromContext(r.Context())
 	if !ok {
 		logger.Log.Error("No audit data in context")
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

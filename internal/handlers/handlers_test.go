@@ -49,7 +49,7 @@ func newTestRouter(service *MockService, withAudit, withAuth bool) http.Handler 
 func withTestAudit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auditData := &models.AuditData{}
-		ctx := context.WithValue(r.Context(), audit.AuditKey, auditData)
+		ctx := audit.SetAuditDataToContext(r.Context(), auditData)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -209,13 +209,12 @@ func BenchmarkIDHandler(b *testing.B) {
 	handler := NewHandler(mockSvc, 10)
 	req := httptest.NewRequest(http.MethodGet, "/abc123", nil)
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
-	req = req.WithContext(context.WithValue(context.WithValue(req.Context(), chi.RouteCtxKey, chi.NewRouteContext()), audit.AuditKey, &models.AuditData{}))
+	req = req.WithContext(audit.SetAuditDataToContext(context.WithValue(req.Context(), chi.RouteCtxKey, chi.NewRouteContext()), &models.AuditData{}))
 	chi.RouteContext(req.Context()).URLParams.Add("id", "abc123")
 
 	w := httptest.NewRecorder()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		handler.IDHandler(w, req)
 		w.Flush()
 	}
@@ -377,11 +376,10 @@ func BenchmarkPostURLHandler(b *testing.B) {
 	handler := NewHandler(mockSvc, 10)
 	body := []byte("https://example.com")
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
-	req = req.WithContext(context.WithValue(requests.SetUserIDToContext(req.Context(), "user123"), audit.AuditKey, &models.AuditData{}))
+	req = req.WithContext(audit.SetAuditDataToContext(requests.SetUserIDToContext(req.Context(), "user123"), &models.AuditData{}))
 	w := httptest.NewRecorder()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req.Body = io.NopCloser(bytes.NewReader(body))
 		handler.PostURLHandler(w, req)
 		w.Flush()
@@ -467,8 +465,7 @@ func BenchmarkPingHandler(b *testing.B) {
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
 	w := httptest.NewRecorder()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		handler.PingHandler(w, req)
 		w.Flush()
 	}
