@@ -7,9 +7,10 @@ import (
 	"mime"
 	"net/http"
 	"slices"
+	"sync"
 
 	"github.com/max-marek-projects/shortener/internal/logger"
-	"github.com/max-marek-projects/shortener/internal/utils"
+	"github.com/max-marek-projects/shortener/internal/requests"
 	"go.uber.org/zap"
 )
 
@@ -23,9 +24,12 @@ type compressWriter struct {
 
 // get new compressed data writer
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
-	return &compressWriter{
-		w: w,
-	}
+	cw := compressWriterPool.Get().(*compressWriter)
+	cw.w = w
+	cw.compressed = false
+	cw.wroteHeader = false
+	cw.zw = nil
+	return cw
 }
 
 func (c *compressWriter) Header() http.Header {
@@ -58,8 +62,14 @@ func (c *compressWriter) WriteHeader(statusCode int) {
 
 func (c *compressWriter) Close() error {
 	if c.compressed && c.zw != nil {
-		return c.zw.Close()
+		err := c.zw.Close()
+		c.zw = nil
+		c.w = nil
+		compressWriterPool.Put(c)
+		return err
 	}
+	c.w = nil
+	compressWriterPool.Put(c)
 	return nil
 }
 
@@ -75,11 +85,10 @@ func newCompressReader(r io.ReadCloser) (*compressReader, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create reader: %w", err)
 	}
-
-	return &compressReader{
-		r:  r,
-		zr: zr,
-	}, nil
+	cr := compressReaderPool.Get().(*compressReader)
+	cr.r = r
+	cr.zr = zr
+	return cr, nil
 }
 
 func (c compressReader) Read(p []byte) (n int, err error) {
@@ -87,10 +96,26 @@ func (c compressReader) Read(p []byte) (n int, err error) {
 }
 
 func (c *compressReader) Close() error {
-	if err := c.r.Close(); err != nil {
-		return fmt.Errorf("Failed close compressed data reader: %w", err)
+	err := c.zr.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close gzip reader: %w", err)
 	}
-	return c.zr.Close()
+	c.r = nil
+	c.zr = nil
+	compressReaderPool.Put(c)
+	return nil
+}
+
+var compressWriterPool = sync.Pool{
+	New: func() any {
+		return &compressWriter{}
+	},
+}
+
+var compressReaderPool = sync.Pool{
+	New: func() any {
+		return &compressReader{}
+	},
 }
 
 // middleware for
@@ -98,14 +123,14 @@ func GzipMiddleware(next http.Handler) http.Handler {
 	gzipFn := func(w http.ResponseWriter, r *http.Request) {
 		ow := w // copy writer to save original value
 
-		acceptEncoding := utils.ParseAcceptEncoding(r.Header.Get("Accept-Encoding"))
+		acceptEncoding := requests.ParseAcceptEncoding(r.Header.Get("Accept-Encoding"))
 		if q, ok := acceptEncoding["gzip"]; ok && q > 0 {
 			cw := newCompressWriter(w)
 			ow = cw
 			defer cw.Close()
 		}
 
-		if slices.Contains(utils.ParseContentEncoding(r.Header.Get("Content-Encoding")), "gzip") {
+		if slices.Contains(requests.ParseContentEncoding(r.Header.Get("Content-Encoding")), "gzip") {
 			cr, err := newCompressReader(r.Body)
 			if err != nil {
 				logger.Log.Error("Failed to create compress data reader", zap.Error(err))

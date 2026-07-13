@@ -52,3 +52,58 @@ func TestGzipMiddleware(t *testing.T) {
 		assert.Equal(t, `{"test":true}`, w.Body.String())
 	})
 }
+
+func BenchmarkGzipMiddleware_NoCompression(b *testing.B) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("hello world"))
+	})
+	handler := GzipMiddleware(next)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+	}
+}
+
+func BenchmarkGzipMiddleware_WithAcceptGzip(b *testing.B) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"ok"}`))
+	})
+	handler := GzipMiddleware(next)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Accept-Encoding", "gzip")
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+	}
+}
+
+func BenchmarkGzipMiddleware_WithGzipBody(b *testing.B) {
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	gz.Write([]byte(`{"data":"test"}`))
+	gz.Close()
+	body := buf.Bytes()
+
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := GzipMiddleware(next)
+
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req.Header.Set("Content-Encoding", "gzip")
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		w := httptest.NewRecorder()
+		req.Body = io.NopCloser(bytes.NewReader(body))
+		handler.ServeHTTP(w, req)
+	}
+}

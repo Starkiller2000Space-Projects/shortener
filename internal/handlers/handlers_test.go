@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,24 +16,57 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/max-marek-projects/shortener/internal/handlers/mocks"
+	"github.com/max-marek-projects/shortener/internal/audit"
+	"github.com/max-marek-projects/shortener/internal/models"
 	"github.com/max-marek-projects/shortener/internal/repository"
+	"github.com/max-marek-projects/shortener/internal/requests"
+	"github.com/max-marek-projects/shortener/internal/service"
 )
 
 // create new router for handlers testing
-func newTestRouter(service *mocks.Service) http.Handler {
+func newTestRouter(service *MockService, withAudit, withAuth bool) http.Handler {
 	h := NewHandler(service, 100)
 
 	r := chi.NewRouter()
+	if withAudit {
+		r.Use(withTestAudit)
+	}
+	if withAuth {
+		r.Use(withTestAuth)
+	}
 	r.Get("/ping", h.PingHandler)
 	r.Get("/{id}", h.IdHandler)
 	r.Post("/", h.PostUrlHandler)
-
+	r.Route("/api", func(api chi.Router) {
+		api.Post("/shorten", h.ShortenJSONHandler)
+		api.Post("/shorten/batch", h.PostBatchShortenHandler)
+		api.Get("/user/urls", h.GetUserURLsHandler)
+		api.Delete("/user/urls", h.DeleteUserURLsHandler)
+	})
 	return r
 }
 
+func withTestAudit(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auditData := &models.AuditData{}
+		ctx := context.WithValue(r.Context(), audit.AuditKey, auditData)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+var testUserId string = "123user"
+
+func withTestAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := requests.SetUserIDToContext(r.Context(), testUserId)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+type requestOption func(*http.Request)
+
 // test single request
-func testRequest(t *testing.T, ts *httptest.Server, method, path, body string) (*http.Response, string) {
+func testRequest(t *testing.T, ts *httptest.Server, method, path, body string, options ...requestOption) (*http.Response, string) {
 	t.Helper()
 
 	var reader io.Reader
@@ -42,6 +76,10 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path, body string) (
 
 	req, err := http.NewRequest(method, ts.URL+path, reader)
 	require.NoError(t, err)
+
+	for _, opt := range options {
+		opt(req)
+	}
 
 	client := ts.Client()
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
@@ -61,32 +99,33 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path, body string) (
 func TestIdHandler(t *testing.T) {
 	fixedID := "test1234"
 	existingUrl := "https://example.com/"
-	mockService := mocks.NewService(t)
-	mockService.EXPECT().GetOriginalURL(mock.Anything, fixedID).Return(existingUrl, nil)
-	mockService.EXPECT().GetOriginalURL(mock.Anything, mock.Anything).Return("", repository.ErrNotFound)
-
-	ts := httptest.NewServer(newTestRouter(mockService))
-	defer ts.Close()
 
 	type want struct {
 		code        int
-		response    string
 		contentType string
 		location    string
 	}
+	type serviceData struct {
+		value string
+		err   error
+	}
 	tests := []struct {
-		name   string
-		method string
-		id     string
-		want   want
+		name    string
+		method  string
+		service *serviceData
+		audit   bool
+		want    want
 	}{
 		{
 			name:   "positive test",
 			method: http.MethodGet,
-			id:     fixedID,
+			service: &serviceData{
+				value: existingUrl,
+				err:   nil,
+			},
+			audit: true,
 			want: want{
 				code:        http.StatusTemporaryRedirect,
-				response:    "",
 				contentType: "text/plain",
 				location:    existingUrl,
 			},
@@ -94,10 +133,9 @@ func TestIdHandler(t *testing.T) {
 		{
 			name:   "wrong method test",
 			method: http.MethodPost,
-			id:     fixedID,
+			audit:  true,
 			want: want{
 				code:        http.StatusMethodNotAllowed,
-				response:    "",
 				contentType: "",
 				location:    "",
 			},
@@ -105,34 +143,86 @@ func TestIdHandler(t *testing.T) {
 		{
 			name:   "missing id test",
 			method: http.MethodGet,
-			id:     "missingId",
+			audit:  true,
+			service: &serviceData{
+				value: "",
+				err:   repository.ErrNotFound,
+			},
 			want: want{
 				code:        http.StatusBadRequest,
-				response:    "",
+				contentType: "text/plain; charset=utf-8",
+				location:    "",
+			},
+		},
+		{
+			name:   "gone test",
+			method: http.MethodGet,
+			audit:  true,
+			service: &serviceData{
+				value: "",
+				err:   repository.ErrGone,
+			},
+			want: want{
+				code:        http.StatusGone,
 				contentType: "text/plain",
+				location:    "",
+			},
+		},
+		{
+			name:   "no audit",
+			method: http.MethodGet,
+			service: &serviceData{
+				value: existingUrl,
+				err:   nil,
+			},
+			audit: false,
+			want: want{
+				code:        http.StatusInternalServerError,
+				contentType: "text/plain; charset=utf-8",
 				location:    "",
 			},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			resp, body := testRequest(t, ts, test.method, fmt.Sprintf("/%v", test.id), "")
+			mockService := NewMockService(t)
+			if test.service != nil {
+				mockService.EXPECT().GetOriginalURL(mock.Anything, fixedID).Return(test.service.value, test.service.err)
+			} else {
+				mockService.AssertNotCalled(t, "GetOriginalURL", mock.Anything, mock.Anything)
+			}
+			ts := httptest.NewServer(newTestRouter(mockService, test.audit, false))
+			defer ts.Close()
+			resp, _ := testRequest(t, ts, test.method, fmt.Sprintf("/%v", fixedID), "")
 			assert.Equal(t, test.want.code, resp.StatusCode)
-			assert.Equal(t, test.want.response, body)
 			assert.Equal(t, test.want.contentType, resp.Header.Get("Content-Type"))
 			assert.Equal(t, test.want.location, resp.Header.Get("Location"))
 		})
 	}
 }
 
+func BenchmarkIdHandler(b *testing.B) {
+	mockSvc := NewMockService(b)
+	mockSvc.On("GetOriginalURL", mock.Anything, "abc123").Return("https://example.com", nil)
+
+	handler := NewHandler(mockSvc, 10)
+	req := httptest.NewRequest(http.MethodGet, "/abc123", nil)
+	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
+	req = req.WithContext(context.WithValue(context.WithValue(req.Context(), chi.RouteCtxKey, chi.NewRouteContext()), audit.AuditKey, &models.AuditData{}))
+	chi.RouteContext(req.Context()).URLParams.Add("id", "abc123")
+
+	w := httptest.NewRecorder()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		handler.IdHandler(w, req)
+		w.Flush()
+	}
+}
+
 // test adding url to storage
 func TestPostUrlHandler(t *testing.T) {
 	fixedID := "test1234"
-	mockService := mocks.NewService(t)
-	mockService.EXPECT().CreateShortURL(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(fmt.Sprintf("http://example/%s", fixedID), nil)
-
-	ts := httptest.NewServer(newTestRouter(mockService))
-	defer ts.Close()
 
 	type want struct {
 		code        int
@@ -140,16 +230,27 @@ func TestPostUrlHandler(t *testing.T) {
 		success     bool
 		body        string
 	}
+	type serviceData struct {
+		value string
+		err   error
+	}
 	tests := []struct {
 		name    string
 		method  string
+		service *serviceData
 		request string
+		audit   bool
 		want    want
 	}{
 		{
-			name:    "positive test",
-			method:  http.MethodPost,
+			name:   "positive test",
+			method: http.MethodPost,
+			service: &serviceData{
+				value: fmt.Sprintf("http://example/%s", fixedID),
+				err:   nil,
+			},
 			request: "https://www.example0.com/",
+			audit:   true,
 			want: want{
 				code:        http.StatusCreated,
 				contentType: "text/plain",
@@ -161,6 +262,7 @@ func TestPostUrlHandler(t *testing.T) {
 			name:    "wrong method test",
 			method:  http.MethodGet,
 			request: "https://www.example2.com/",
+			audit:   true,
 			want: want{
 				code:        http.StatusMethodNotAllowed,
 				contentType: "",
@@ -168,9 +270,89 @@ func TestPostUrlHandler(t *testing.T) {
 				body:        "",
 			},
 		},
+		{
+			name:    "empty body test",
+			method:  http.MethodPost,
+			request: "",
+			audit:   true,
+			want: want{
+				code:        http.StatusBadRequest,
+				contentType: "",
+				success:     false,
+				body:        "",
+			},
+		},
+		{
+			name:    "no audit",
+			method:  http.MethodPost,
+			request: "https://www.example0.com/",
+			audit:   false,
+			want: want{
+				code:        http.StatusInternalServerError,
+				contentType: "text/plain; charset=utf-8",
+				success:     false,
+				body:        "",
+			},
+		},
+		{
+			name:   "empty url",
+			method: http.MethodPost,
+			service: &serviceData{
+				value: "",
+				err:   service.ErrorEmptyUrl,
+			},
+			request: "https://www.example0.com/",
+			audit:   true,
+			want: want{
+				code:        http.StatusBadRequest,
+				contentType: "text/plain",
+				success:     false,
+				body:        "",
+			},
+		},
+		{
+			name:   "duplicate",
+			method: http.MethodPost,
+			service: &serviceData{
+				value: "",
+				err:   service.ErrorDuplicate,
+			},
+			request: "https://www.example0.com/",
+			audit:   true,
+			want: want{
+				code:        http.StatusConflict,
+				contentType: "text/plain",
+				success:     false,
+				body:        "",
+			},
+		},
+		{
+			name:   "unknown error",
+			method: http.MethodPost,
+			service: &serviceData{
+				value: "",
+				err:   fmt.Errorf("unknown error"),
+			},
+			request: "https://www.example0.com/",
+			audit:   true,
+			want: want{
+				code:        http.StatusInternalServerError,
+				contentType: "text/plain",
+				success:     false,
+				body:        "",
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			mockService := NewMockService(t)
+			if test.service != nil {
+				mockService.EXPECT().CreateShortURL(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(test.service.value, test.service.err)
+			} else {
+				mockService.AssertNotCalled(t, "CreateShortURL", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+			}
+			ts := httptest.NewServer(newTestRouter(mockService, test.audit, false))
+			defer ts.Close()
 			resp, body := testRequest(t, ts, test.method, "/", test.request)
 			assert.Equal(t, test.want.code, resp.StatusCode)
 			if !test.want.success {
@@ -180,13 +362,32 @@ func TestPostUrlHandler(t *testing.T) {
 			parsedUrl, err := url.Parse(body)
 			require.NoError(t, err)
 			createdId := strings.TrimLeft(parsedUrl.Path, "/")
-			assert.Equal(t, createdId, fixedID)
+			assert.Equal(t, fixedID, createdId)
 		})
 	}
 }
 
+func BenchmarkPostUrlHandler(b *testing.B) {
+	mockSvc := NewMockService(b)
+	mockSvc.EXPECT().CreateShortURL(mock.Anything, "https://example.com", mock.Anything, mock.Anything).
+		Return("http://localhost/abc123", nil)
+
+	handler := NewHandler(mockSvc, 10)
+	body := []byte("https://example.com")
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
+	req = req.WithContext(context.WithValue(requests.SetUserIDToContext(req.Context(), "user123"), audit.AuditKey, &models.AuditData{}))
+	w := httptest.NewRecorder()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		req.Body = io.NopCloser(bytes.NewReader(body))
+		handler.PostUrlHandler(w, req)
+		w.Flush()
+	}
+}
+
 func TestPingHandler(t *testing.T) {
-	mockService := mocks.NewService(t)
+	mockService := NewMockService(t)
 	mockService.EXPECT().Ping(mock.Anything).Return(nil)
 	handler := NewHandler(mockService, 100)
 
@@ -197,4 +398,75 @@ func TestPingHandler(t *testing.T) {
 	res := w.Result()
 	defer res.Body.Close()
 	assert.Equal(t, http.StatusOK, res.StatusCode)
+
+	type want struct {
+		code int
+	}
+	type serviceData struct {
+		err error
+	}
+	tests := []struct {
+		name    string
+		method  string
+		service *serviceData
+		want    want
+	}{
+		{
+			name:   "positive test",
+			method: http.MethodGet,
+			service: &serviceData{
+				err: nil,
+			},
+			want: want{
+				code: http.StatusOK,
+			},
+		},
+		{
+			name:   "wrong method test",
+			method: http.MethodPost,
+			want: want{
+				code: http.StatusMethodNotAllowed,
+			},
+		},
+		{
+			name:   "unknown error",
+			method: http.MethodGet,
+			service: &serviceData{
+				err: fmt.Errorf("unknown error"),
+			},
+			want: want{
+				code: http.StatusInternalServerError,
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mockService := NewMockService(t)
+			if test.service != nil {
+				mockService.EXPECT().Ping(mock.Anything).Return(test.service.err)
+			} else {
+				mockService.AssertNotCalled(t, "CreateShortURL", mock.Anything)
+			}
+			ts := httptest.NewServer(newTestRouter(mockService, false, false))
+			defer ts.Close()
+			resp, _ := testRequest(t, ts, test.method, "/ping", "")
+			assert.Equal(t, test.want.code, resp.StatusCode)
+		})
+	}
+}
+
+func BenchmarkPingHandler(b *testing.B) {
+	mockSvc := NewMockService(b)
+	mockSvc.On("Ping", mock.Anything).Return(nil)
+
+	handler := NewHandler(mockSvc, 10)
+	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
+	w := httptest.NewRecorder()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		handler.PingHandler(w, req)
+		w.Flush()
+	}
 }

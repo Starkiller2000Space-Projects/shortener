@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -12,14 +13,14 @@ import (
 
 	"github.com/max-marek-projects/shortener/internal/models"
 	"github.com/max-marek-projects/shortener/internal/repository"
-	"github.com/max-marek-projects/shortener/internal/service/mocks"
-
+	"github.com/max-marek-projects/shortener/internal/requests"
 	"github.com/max-marek-projects/shortener/internal/utils"
 )
 
+// test for short url creation
 func TestService_CreateShortURL(t *testing.T) {
 	idSize := 8
-	mockStorage := mocks.NewStorage(t)
+	mockStorage := NewMockStorage(t)
 	mockStorage.EXPECT().Add(mock.Anything, mock.Anything).Return(nil)
 	type want struct {
 		short string
@@ -87,7 +88,7 @@ func TestService_CreateShortURL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testService := NewEndpointService(mockStorage, tt.showAddr, idSize)
-			got, err := testService.CreateShortURL(utils.SetUserIDToContext(context.Background(), "test-user-id"), tt.originalURL, tt.scheme, tt.host)
+			got, err := testService.CreateShortURL(requests.SetUserIDToContext(context.Background(), "test-user-id"), tt.originalURL, tt.scheme, tt.host)
 			if tt.want.err != nil {
 				assert.Error(t, err)
 				assert.Equal(t, tt.want.err.Error(), err.Error())
@@ -97,9 +98,20 @@ func TestService_CreateShortURL(t *testing.T) {
 				parsedUrl, err := url.Parse(got)
 				require.NoError(t, err)
 				createdId := strings.TrimLeft(parsedUrl.Path, "/")
-				assert.Equal(t, len(createdId), idSize)
+				assert.Equal(t, idSize, len(createdId))
 			}
 		})
+	}
+}
+
+func BenchmarkService_CreateShortURL(b *testing.B) {
+	store, _ := repository.NewMemStorage()
+	svc := NewEndpointService(store, "", 8)
+	ctx := requests.SetUserIDToContext(context.Background(), "bench-user")
+
+	for i := 0; b.Loop(); i++ {
+		url := fmt.Sprintf("https://example.com/%d", i)
+		_, _ = svc.CreateShortURL(ctx, url, "http", "localhost:8080")
 	}
 }
 
@@ -108,7 +120,7 @@ func TestService_GetOriginalURL(t *testing.T) {
 	idSize := 8
 	existingUrl := "https://existing-url.com"
 	// mock service
-	mockStorage := mocks.NewStorage(t)
+	mockStorage := NewMockStorage(t)
 	mockStorage.EXPECT().Get(mock.Anything, fixedId).Return(existingUrl, nil)
 	mockStorage.EXPECT().Get(mock.Anything, mock.Anything).Return("", repository.ErrNotFound)
 	testService := NewEndpointService(mockStorage, "", idSize)
@@ -141,7 +153,7 @@ func TestService_GetOriginalURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := testService.GetOriginalURL(utils.SetUserIDToContext(context.Background(), "test-user-id"), tt.shortID)
+			got, err := testService.GetOriginalURL(requests.SetUserIDToContext(context.Background(), "test-user-id"), tt.shortID)
 			if tt.want.err != nil {
 				assert.Error(t, err)
 				assert.ErrorIs(t, err, tt.want.err)
@@ -153,9 +165,28 @@ func TestService_GetOriginalURL(t *testing.T) {
 	}
 }
 
+func BenchmarkService_GetOriginalURL(b *testing.B) {
+	store, _ := repository.NewMemStorage()
+	svc := NewEndpointService(store, "", 8)
+	ctx := requests.SetUserIDToContext(context.Background(), "bench-user")
+
+	const n = 1000
+	ids := make([]string, n)
+	for i := range n {
+		id := utils.GenerateId(8)
+		ids[i] = id
+		_ = store.Add(ctx, repository.Row{ID: id, OriginalURL: fmt.Sprintf("https://example.com/%d", i), UserID: "bench-user"})
+	}
+
+	for i := 0; b.Loop(); i++ {
+		id := ids[i%n]
+		_, _ = svc.GetOriginalURL(ctx, id)
+	}
+}
+
 func TestService_CreateShortURLsBatch(t *testing.T) {
 	idSize := 8
-	mockStorage := mocks.NewStorage(t)
+	mockStorage := NewMockStorage(t)
 	mockStorage.EXPECT().AddBatch(mock.Anything, mock.Anything).Return(nil)
 
 	testService := NewEndpointService(mockStorage, "http://short.com", idSize)
@@ -163,7 +194,7 @@ func TestService_CreateShortURLsBatch(t *testing.T) {
 		{CorrelationID: "1", OriginalURL: "https://example1.com"},
 		{CorrelationID: "2", OriginalURL: "https://example2.com"},
 	}
-	ctx := utils.SetUserIDToContext(context.Background(), "user1")
+	ctx := requests.SetUserIDToContext(context.Background(), "user1")
 	resp, err := testService.CreateShortURLsBatch(ctx, req, "https", "short.com")
 	require.NoError(t, err)
 	assert.Len(t, resp, 2)
@@ -173,15 +204,33 @@ func TestService_CreateShortURLsBatch(t *testing.T) {
 	}
 }
 
+func BenchmarkService_CreateShortURLsBatch(b *testing.B) {
+	store, _ := repository.NewMemStorage()
+	svc := NewEndpointService(store, "http://short.com", 8)
+	ctx := requests.SetUserIDToContext(context.Background(), "bench-user")
+	const batchSize = 10
+
+	for i := 0; b.Loop(); i++ {
+		req := make([]models.BatchShortenRequest, batchSize)
+		for j := range batchSize {
+			req[j] = models.BatchShortenRequest{
+				CorrelationID: fmt.Sprintf("%d-%d", i, j),
+				OriginalURL:   fmt.Sprintf("https://example.com/%d/%d", i, j),
+			}
+		}
+		_, _ = svc.CreateShortURLsBatch(ctx, req, "http", "short.com")
+	}
+}
+
 func TestService_GetUserURLs(t *testing.T) {
-	mockStorage := mocks.NewStorage(t)
+	mockStorage := NewMockStorage(t)
 	userURLs := []repository.UserURL{
 		{ShortURL: "abc123", OriginalURL: "http://orig.com"},
 	}
 	mockStorage.EXPECT().GetUserURLs(mock.Anything, "user1").Return(userURLs, nil)
 
 	testService := NewEndpointService(mockStorage, "http://short.com", 8)
-	ctx := utils.SetUserIDToContext(context.Background(), "user1")
+	ctx := requests.SetUserIDToContext(context.Background(), "user1")
 	result, err := testService.GetUserURLs(ctx, "http", "short.com")
 	require.NoError(t, err)
 	assert.Len(t, result, 1)
@@ -189,8 +238,24 @@ func TestService_GetUserURLs(t *testing.T) {
 	assert.Equal(t, "http://orig.com", result[0].OriginalURL)
 }
 
+func BenchmarkService_GetUserURLs(b *testing.B) {
+	store, _ := repository.NewMemStorage()
+	svc := NewEndpointService(store, "http://short.com", 8)
+	ctx := requests.SetUserIDToContext(context.Background(), "bench-user")
+
+	const n = 100
+	for i := range n {
+		id := utils.GenerateId(8)
+		_ = store.Add(ctx, repository.Row{ID: id, OriginalURL: fmt.Sprintf("https://example.com/%d", i), UserID: "bench-user"})
+	}
+
+	for b.Loop() {
+		_, _ = svc.GetUserURLs(ctx, "http", "short.com")
+	}
+}
+
 func TestService_DeleteUserURLs(t *testing.T) {
-	mockStorage := mocks.NewStorage(t)
+	mockStorage := NewMockStorage(t)
 	mockStorage.EXPECT().DeleteBatch(mock.Anything, "user1", []string{"abc", "def"}).Return(nil)
 
 	testService := NewEndpointService(mockStorage, "", 8)

@@ -3,20 +3,24 @@ package middlewares
 import (
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/max-marek-projects/shortener/internal/logger"
 	"go.uber.org/zap"
 )
 
-func RequestsLogger(h http.Handler) http.Handler {
+var responseDataPool = sync.Pool{
+	New: func() any { return &responseData{} },
+}
+
+func LoggerMiddleware(h http.Handler) http.Handler {
 	logFn := func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-
-		responseData := &responseData{
-			status: 0,
-			size:   0,
-		}
+		responseData := responseDataPool.Get().(*responseData)
+		responseData.status = 0
+		responseData.size = 0
+		defer responseDataPool.Put(responseData)
 		lw := loggingResponseWriter{
 			ResponseWriter: w,
 			responseData:   responseData,

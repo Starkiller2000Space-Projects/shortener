@@ -18,6 +18,8 @@ import (
 	"github.com/max-marek-projects/shortener/internal/server"
 	"github.com/max-marek-projects/shortener/internal/service"
 	"go.uber.org/zap"
+
+	_ "net/http/pprof"
 )
 
 // entry point
@@ -33,9 +35,13 @@ func main() {
 	}
 	service := service.NewEndpointService(store, configData.ShowAddr, configData.IdSize)
 	handler := handlers.NewHandler(service, configData.MaxParallelWorkers)
-	audit.InitAudit(configData.AuditFile, configData.AuditURL)
-	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout, configData.CookieSecret)
+	auditor := audit.InitAudit(configData.AuditFile, configData.AuditURL)
+	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout, auditor, configData.CookieSecret)
 
+	// use pprof
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 	// create separate goroutine
 	serverErr := make(chan error, 1)
 	go func() {

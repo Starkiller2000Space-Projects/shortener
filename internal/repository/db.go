@@ -21,8 +21,7 @@ type dbStorage struct {
 	config  *db.DBConf
 }
 
-func NewDBStorage(dbURL string) (*dbStorage, error) {
-	config := db.NewDbConf(dbURL)
+func NewDBStorage(config *db.DBConf) (*dbStorage, error) {
 	storage, err := db.Connect(config)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create DB storage: %w", err)

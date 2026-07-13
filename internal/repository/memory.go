@@ -6,20 +6,26 @@ import (
 )
 
 type memStorage struct {
-	mu   sync.RWMutex
-	data map[string]urlInfo
+	mu      sync.RWMutex
+	data    map[string]urlInfo
+	urlToID map[string]string // originalURL -> id
 }
 
 // Create memory storage
 func NewMemStorage() (*memStorage, error) {
 	return &memStorage{
-		data: make(map[string]urlInfo),
+		data:    make(map[string]urlInfo),
+		urlToID: make(map[string]string),
 	}, nil // error not possible, but output is consistent with other storage types
 }
 
 // add url into storage and return generated id
 func (m *memStorage) add(info Row) error {
+	if existingID, ok := m.urlToID[info.OriginalURL]; ok {
+		return &ErrAlreadyExists{ExistingID: existingID}
+	}
 	m.data[info.ID] = urlInfo{originalURL: info.OriginalURL, userID: info.UserID}
+	m.urlToID[info.OriginalURL] = info.ID
 	return nil
 }
 
@@ -62,7 +68,13 @@ func (m *memStorage) Ping(ctx context.Context) error {
 // add multiple values as batch
 func (m *memStorage) addBatch(items []Row) error {
 	for _, item := range items {
+		if _, ok := m.urlToID[item.OriginalURL]; ok {
+			return &ErrAlreadyExists{ExistingID: m.urlToID[item.OriginalURL]}
+		}
+	}
+	for _, item := range items {
 		m.data[item.ID] = urlInfo{originalURL: item.OriginalURL, userID: item.UserID}
+		m.urlToID[item.OriginalURL] = item.ID
 	}
 	return nil
 }

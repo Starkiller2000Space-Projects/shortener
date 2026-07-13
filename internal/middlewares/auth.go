@@ -6,6 +6,7 @@ import (
 
 	"github.com/max-marek-projects/shortener/internal/auth"
 	"github.com/max-marek-projects/shortener/internal/logger"
+	"github.com/max-marek-projects/shortener/internal/requests"
 	"github.com/max-marek-projects/shortener/internal/utils"
 	"go.uber.org/zap"
 )
@@ -32,7 +33,7 @@ func AuthMiddleware(secretKey string) func(http.Handler) http.Handler {
 				}
 			}
 			// now err is nil, userID is valid
-			ctx := utils.SetUserIDToContext(r.Context(), userID)
+			ctx := requests.SetUserIDToContext(r.Context(), userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

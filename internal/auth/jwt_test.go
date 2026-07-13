@@ -6,24 +6,26 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const testSecret = "test-secret"
 
 func TestSetAndGetUserID(t *testing.T) {
-	userID := "test-user-123"
+	testUserID := "test-user-123"
 	w := httptest.NewRecorder()
-	SetUserCookie(w, userID, testSecret)
+	err := SetUserCookie(w, testUserID, testSecret)
+	require.NoError(t, err)
 
 	cookie := w.Result().Cookies()[0]
 	assert.Equal(t, cookieName, cookie.Name)
 	userID, err := extractUserIDFromToken(cookie.Value, testSecret)
 	assert.NoError(t, err)
-	assert.Equal(t, userID, userID)
+	assert.Equal(t, testUserID, userID)
 
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	req.AddCookie(cookie)
 	got, err := GetUserIDFromRequest(req, testSecret)
 	assert.NoError(t, err)
-	assert.Equal(t, userID, got)
+	assert.Equal(t, testUserID, got)
 }

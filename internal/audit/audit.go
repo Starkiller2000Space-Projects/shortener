@@ -3,8 +3,15 @@ package audit
 import "github.com/max-marek-projects/shortener/internal/models"
 
 // audit observer interface
+//go:generate mockery --name=Observer --inpackage --filename=mock_observer_test.go --with-expecter
 type Observer interface {
 	Notify(event models.AuditEvent)
+}
+
+//go:generate mockery --name=Audit --output=../middlewares --outpkg=middlewares --filename=mock_audit_test.go --with-expecter --structname=MockAudit
+type Audit interface {
+	Register(o Observer)
+	NotifyAll(event models.AuditEvent)
 }
 
 // audit for all observers notification
@@ -24,16 +31,16 @@ func (s *audit) NotifyAll(event models.AuditEvent) {
 	}
 }
 
-// singleton audit variable
-var Audit *audit
+var AuditKey string = "audit_data"
 
 // Initialize audit
-func InitAudit(auditFile, auditURL string) {
-	Audit = &audit{}
+func InitAudit(auditFile, auditURL string) *audit {
+	auditItem := &audit{}
 	if auditFile != "" {
-		Audit.Register(NewFileAuditObserver(auditFile))
+		auditItem.Register(NewFileAuditObserver(auditFile))
 	}
 	if auditURL != "" {
-		Audit.Register(NewHTTPAuditObserver(auditURL))
+		auditItem.Register(NewHTTPAuditObserver(auditURL))
 	}
+	return auditItem
 }

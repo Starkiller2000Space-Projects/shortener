@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/max-marek-projects/shortener/internal/audit"
 	"github.com/max-marek-projects/shortener/internal/handlers"
 	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/max-marek-projects/shortener/internal/middlewares"
@@ -16,14 +17,14 @@ type Server struct {
 	http.Server
 }
 
-func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.Duration, cookieSecret string) *Server {
+func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.Duration, auditor audit.Audit, cookieSecret string) *Server {
 	r := chi.NewRouter()
 
 	//middlewares
 	r.Use(middleware.Recoverer)
 	r.Use(middlewares.GzipMiddleware)
-	r.Use(middlewares.RequestsLogger)
-	r.Use(middlewares.AuditMiddleware(cookieSecret))
+	r.Use(middlewares.LoggerMiddleware)
+	r.Use(middlewares.AuditMiddleware(auditor))
 
 	// public endpoints
 	r.Get("/ping", h.PingHandler)
