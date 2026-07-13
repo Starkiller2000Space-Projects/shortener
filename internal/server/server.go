@@ -23,6 +23,7 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 	r.Use(middleware.Recoverer)
 	r.Use(middlewares.GzipMiddleware)
 	r.Use(middlewares.RequestsLogger)
+	r.Use(middlewares.AuditMiddleware(cookieSecret))
 
 	// public endpoints
 	r.Get("/ping", h.PingHandler)

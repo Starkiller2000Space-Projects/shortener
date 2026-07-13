@@ -21,6 +21,11 @@ func (h *Handler) ShortenJSONHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
+	ctx := context.WithValue(r.Context(), "audit_data", models.AuditData{
+		Action: models.AuditShorten,
+		URL:    requestData.URL,
+	})
+	r = r.WithContext(ctx)
 	shortURL, err := h.service.CreateShortURL(r.Context(), requestData.URL, r.Header.Get("X-Forwarded-Proto"), r.Host)
 	if err != nil {
 		if errors.Is(err, service.ErrorEmptyUrl) {

@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/max-marek-projects/shortener/internal/audit"
 	"github.com/max-marek-projects/shortener/internal/config"
 	"github.com/max-marek-projects/shortener/internal/handlers"
 	"github.com/max-marek-projects/shortener/internal/logger"
@@ -32,6 +33,7 @@ func main() {
 	}
 	service := service.NewEndpointService(store, configData.ShowAddr, configData.IdSize)
 	handler := handlers.NewHandler(service, configData.MaxParallelWorkers)
+	audit.InitAudit(configData.AuditFile, configData.AuditURL)
 	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout, configData.CookieSecret)
 
 	// create separate goroutine
