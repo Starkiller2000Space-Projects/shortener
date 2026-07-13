@@ -1,3 +1,5 @@
+// Package requests provides helpers for parsing HTTP headers and context values.
+
 package requests
 
 import (
@@ -5,7 +7,9 @@ import (
 	"strings"
 )
 
-// parse Accept-encoding header into mapping <encoding : quality value>
+// ParseAcceptEncoding parses the Accept-Encoding header and returns a map
+// of encoding names to quality values (q). Default quality is 1.0.
+// Example: "gzip, deflate;q=0.9" -> map["gzip"]=1.0, map["deflate"]=0.9
 func ParseAcceptEncoding(header string) map[string]float64 {
 	result := make(map[string]float64)
 	for _, headerPart := range strings.Split(header, ",") {
@@ -38,6 +42,9 @@ func ParseAcceptEncoding(header string) map[string]float64 {
 	return result
 }
 
+// ParseContentEncoding parses the Content-Encoding header and returns a slice
+// of encoding names (split by commas and trimmed).
+// Example: "gzip, br" -> ["gzip", "br"]
 func ParseContentEncoding(header string) []string {
 	result := make([]string, 0)
 	for _, headerPart := range strings.Split(header, ",") {

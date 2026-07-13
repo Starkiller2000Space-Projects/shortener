@@ -1,3 +1,5 @@
+// Package middlewares provides HTTP middleware for logging, auth, gzip, and audit.
+
 package middlewares
 
 import (
@@ -14,7 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// writer for compressed data
+// compressWriter is a wrapper around http.ResponseWriter that compresses
+// response data using gzip if the content type is JSON or HTML.
 type compressWriter struct {
 	w           http.ResponseWriter
 	zw          *gzip.Writer
@@ -22,7 +25,8 @@ type compressWriter struct {
 	wroteHeader bool
 }
 
-// get new compressed data writer
+// newCompressWriter creates a new compressWriter (without gzip writer yet).
+// The writer is created on demand when WriteHeader is called.
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	cw := compressWriterPool.Get().(*compressWriter)
 	cw.w = w
@@ -32,10 +36,13 @@ func newCompressWriter(w http.ResponseWriter) *compressWriter {
 	return cw
 }
 
+// Header returns the header map that will be sent by the underlying ResponseWriter.
 func (c *compressWriter) Header() http.Header {
 	return c.w.Header()
 }
 
+// Write writes the data to the response. If compression is enabled, it writes to the gzip writer.
+// Otherwise, it writes directly to the underlying writer.
 func (c *compressWriter) Write(p []byte) (int, error) {
 	if !c.wroteHeader {
 		c.WriteHeader(http.StatusOK)
@@ -46,6 +53,8 @@ func (c *compressWriter) Write(p []byte) (int, error) {
 	return c.w.Write(p)
 }
 
+// WriteHeader sends the HTTP status code and, if the content type is JSON or HTML,
+// enables gzip compression and sets the Content-Encoding header.
 func (c *compressWriter) WriteHeader(statusCode int) {
 	if c.wroteHeader {
 		return
@@ -60,6 +69,7 @@ func (c *compressWriter) WriteHeader(statusCode int) {
 	c.w.WriteHeader(statusCode)
 }
 
+// Close closes gzip writer and returns it to pool.
 func (c *compressWriter) Close() error {
 	if c.compressed && c.zw != nil {
 		err := c.zw.Close()
@@ -73,13 +83,14 @@ func (c *compressWriter) Close() error {
 	return nil
 }
 
-// reader for compressed data
+// compressReader wraps an io.ReadCloser and decompresses gzip-encoded data.
 type compressReader struct {
 	r  io.ReadCloser
 	zr *gzip.Reader
 }
 
-// get new reader for compressed data
+// newCompressReader creates a new gzip reader from the given ReadCloser.
+// Returns an error if the reader cannot be initialized.
 func newCompressReader(r io.ReadCloser) (*compressReader, error) {
 	zr, err := gzip.NewReader(r)
 	if err != nil {
@@ -91,14 +102,20 @@ func newCompressReader(r io.ReadCloser) (*compressReader, error) {
 	return cr, nil
 }
 
+// Read reads decompressed data from the gzip reader.
 func (c compressReader) Read(p []byte) (n int, err error) {
 	return c.zr.Read(p)
 }
 
+// Close closes gzip reader and returns it to pool.
 func (c *compressReader) Close() error {
 	err := c.zr.Close()
 	if err != nil {
 		return fmt.Errorf("failed to close gzip reader: %w", err)
+	}
+	err = c.r.Close()
+	if err != nil {
+		return fmt.Errorf("failed to close request: %w", err)
 	}
 	c.r = nil
 	c.zr = nil
@@ -106,19 +123,25 @@ func (c *compressReader) Close() error {
 	return nil
 }
 
+// compressWriterPool reuses compressWriter objects to reduce allocations.
 var compressWriterPool = sync.Pool{
 	New: func() any {
 		return &compressWriter{}
 	},
 }
 
+// compressReaderPool reuses compressReader objects to reduce allocations.
 var compressReaderPool = sync.Pool{
 	New: func() any {
 		return &compressReader{}
 	},
 }
 
-// middleware for
+// GzipMiddleware returns a middleware that handles gzip compression for responses
+// and decompresses gzip-encoded request bodies.
+// It checks the Accept-Encoding header to compress responses when supported.
+// It checks the Content-Encoding header to decompress request bodies.
+// The middleware uses sync.Pool to reuse compressWriter and compressReader objects.
 func GzipMiddleware(next http.Handler) http.Handler {
 	gzipFn := func(w http.ResponseWriter, r *http.Request) {
 		ow := w // copy writer to save original value

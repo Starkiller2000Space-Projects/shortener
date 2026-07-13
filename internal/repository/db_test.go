@@ -27,7 +27,7 @@ func setupTestDB(t interface {
 	if dsn == "" {
 		t.Skip("TEST_DATABASE_DSN not set, skipping integration test")
 	}
-	config := db.NewDbConf(dsn)
+	config := db.NewDBConf(dsn)
 	config.MigrationsPath = "../../migrations"
 	storage, err := NewDBStorage(config)
 	require.NoError(t, err)
@@ -47,25 +47,25 @@ func TestDBStorage_Add(t *testing.T) {
 	defer cleanup()
 	ctx := context.Background()
 	// check id is not present in storage
-	testId := "id1"
-	testUrl := "http://example.com"
-	got, err := store.Get(ctx, testId)
+	testID := "id1"
+	testURL := "http://example.com"
+	got, err := store.Get(ctx, testID)
 	assert.Error(t, err)
 	assert.Equal(t, "", got)
 	// add test id
-	row := Row{ID: testId, OriginalURL: testUrl, UserID: "u1"}
+	row := Row{ID: testID, OriginalURL: testURL, UserID: "u1"}
 	err = store.Add(ctx, row)
 	assert.NoError(t, err)
 	// test id was added to storage
-	got, err = store.Get(ctx, testId)
+	got, err = store.Get(ctx, testID)
 	assert.NoError(t, err)
-	assert.Equal(t, testUrl, got)
+	assert.Equal(t, testURL, got)
 	// check new storage creation leaves data in storage
 	store2, err := NewDBStorage(dbConf)
 	require.NoError(t, err)
-	got2, err := store2.Get(ctx, testId)
+	got2, err := store2.Get(ctx, testID)
 	assert.NoError(t, err)
-	assert.Equal(t, testUrl, got2)
+	assert.Equal(t, testURL, got2)
 }
 
 func BenchmarkDBStorageAdd(b *testing.B) {
@@ -73,10 +73,9 @@ func BenchmarkDBStorageAdd(b *testing.B) {
 	defer cleanup()
 
 	ctx := context.Background()
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
-		id := utils.GenerateId(8)
+	for b.Loop() {
+		id := utils.GenerateID(8)
 		row := Row{
 			ID:          id,
 			OriginalURL: "https://example.com/" + id,
@@ -101,8 +100,7 @@ func BenchmarkDBStorageGet(b *testing.B) {
 		b.Fatalf("failed to add initial row: %v", err)
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := storage.Get(ctx, id)
 		if err != nil {
 			b.Fatalf("Get failed: %v", err)
@@ -169,7 +167,7 @@ func BenchmarkDBStorageAddBatch(b *testing.B) {
 		items := make([]Row, 10)
 		for j := range 10 {
 			items[j] = Row{
-				ID:          utils.GenerateId(8),
+				ID:          utils.GenerateID(8),
 				OriginalURL: "https://example.com/" + fmt.Sprint(i) + "/" + fmt.Sprint(j),
 				UserID:      "user",
 			}
@@ -188,11 +186,11 @@ func TestDBStorage_GetUserUrls(t *testing.T) {
 	defer cleanup()
 	ctx := context.Background()
 	// check id is not present in storage
-	userId1 := "u1"
+	userID1 := "u1"
 	testRows := []Row{
-		{ID: "id1", OriginalURL: "http://example1.com", UserID: userId1},
-		{ID: "id2", OriginalURL: "http://example2.com", UserID: userId1},
-		{ID: "id3", OriginalURL: "http://example3.com", UserID: userId1},
+		{ID: "id1", OriginalURL: "http://example1.com", UserID: userID1},
+		{ID: "id2", OriginalURL: "http://example2.com", UserID: userID1},
+		{ID: "id3", OriginalURL: "http://example3.com", UserID: userID1},
 		{ID: "id4", OriginalURL: "http://example4.com", UserID: "u2"},
 		{ID: "id5", OriginalURL: "http://example5.com", UserID: "u2"},
 	}
@@ -204,7 +202,7 @@ func TestDBStorage_GetUserUrls(t *testing.T) {
 		{ShortURL: "id2", OriginalURL: "http://example2.com"},
 		{ShortURL: "id3", OriginalURL: "http://example3.com"},
 	}
-	userUrls, err := store.GetUserURLs(ctx, userId1)
+	userUrls, err := store.GetUserURLs(ctx, userID1)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, userUrls)
 }
@@ -217,7 +215,7 @@ func BenchmarkDBStorageGetUserURLs(b *testing.B) {
 	userID := "benchUser"
 	for i := 0; i < 100; i++ {
 		row := Row{
-			ID:          utils.GenerateId(8),
+			ID:          utils.GenerateID(8),
 			OriginalURL: "https://example.com/" + fmt.Sprint(i),
 			UserID:      userID,
 		}
@@ -227,8 +225,7 @@ func BenchmarkDBStorageGetUserURLs(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_, err := storage.GetUserURLs(ctx, userID)
 		if err != nil {
 			b.Fatalf("GetUserURLs failed: %v", err)
@@ -274,7 +271,7 @@ func BenchmarkDBStorageDeleteBatch(b *testing.B) {
 	userID := "delUser"
 	ids := make([]string, 10)
 	for i := 0; i < 10; i++ {
-		id := utils.GenerateId(8)
+		id := utils.GenerateID(8)
 		ids[i] = id
 		row := Row{ID: id, OriginalURL: "https://example.com/" + id, UserID: userID}
 		err := storage.Add(ctx, row)
@@ -283,8 +280,7 @@ func BenchmarkDBStorageDeleteBatch(b *testing.B) {
 		}
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		err := storage.DeleteBatch(ctx, userID, ids)
 		if err != nil {
 			b.Fatalf("DeleteBatch failed: %v", err)

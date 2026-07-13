@@ -1,3 +1,5 @@
+// Package service implements the core URL shortening business logic.
+
 package service
 
 import (
@@ -14,7 +16,9 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:generate mockery --name=Service --output=../handlers --outpkg=handlers --filename=mock_service_test.go --with-expecter --structname=MockService
+// Service defines the business logic interface for URL shortening.
+//
+//go:generate mockery --name=Service --output=../handlers --outpkg=handlers --filename=mock_service_test.gen.go --with-expecter --structname=MockService
 type Service interface {
 	CreateShortURL(ctx context.Context, original, scheme, host string) (string, error)
 	GetOriginalURL(ctx context.Context, short string) (string, error)
@@ -29,18 +33,22 @@ type Service interface {
 	DeleteUserURLs(ctx context.Context, userID string, shortIDs []string) error
 }
 
+// NewEndpointService creates a new service implementation with the given storage,
+// base URL for short links (showAddr), and ID size (number of characters).
 func NewEndpointService(storage repository.Storage, showAddr string, idSize int) Service {
 	return &endpointService{storage: storage, showAddr: showAddr, idSize: idSize}
 }
 
+// endpointService is the concrete implementation of Service.
 type endpointService struct {
 	storage  repository.Storage
 	showAddr string
 	idSize   int
 }
 
-// add url into storage and return generated id
-func (service *endpointService) getUrlFromId(id, scheme, host string) (string, error) {
+// getURLFromID constructs a full short URL (with scheme and host) from a short ID.
+// Uses showAddr if configured, otherwise builds from scheme://host.
+func (service *endpointService) getURLFromID(id, scheme, host string) (string, error) {
 	if scheme == "" {
 		scheme = "http"
 	}
@@ -63,25 +71,25 @@ func (service *endpointService) CreateShortURL(ctx context.Context, original, sc
 	original = strings.TrimSpace(original)
 	if original == "" {
 		logger.Log.Error("Url is Empty")
-		return "", ErrorEmptyUrl
+		return "", ErrEmptyURL
 	}
-	id := utils.GenerateId(service.idSize)
+	id := utils.GenerateID(service.idSize)
 	err := service.storage.Add(ctx, repository.Row{ID: id, OriginalURL: original, UserID: userID})
 	if err != nil {
 		var existsErr *repository.ErrAlreadyExists
 		if errors.As(err, &existsErr) {
-			shortURL, err := service.getUrlFromId(existsErr.ExistingID, scheme, host)
+			shortURL, err := service.getURLFromID(existsErr.ExistingID, scheme, host)
 			if err != nil {
-				return "", fmt.Errorf("Failed to create short url: %w", err)
+				return "", fmt.Errorf("failed to create short url: %w", err)
 			}
-			return shortURL, ErrorDuplicate
+			return shortURL, ErrDuplicate
 		}
 		logger.Log.Error("Url addition error", zap.String("message", err.Error()))
-		return "", fmt.Errorf("Failed to create short url: %w", err)
+		return "", fmt.Errorf("failed to create short url: %w", err)
 	}
-	shortURL, err := service.getUrlFromId(id, scheme, host)
+	shortURL, err := service.getURLFromID(id, scheme, host)
 	if err != nil {
-		return "", fmt.Errorf("Failed to create short url: %w", err)
+		return "", fmt.Errorf("failed to create short url: %w", err)
 	}
 	return shortURL, nil
 }
@@ -94,7 +102,7 @@ func (service *endpointService) GetOriginalURL(ctx context.Context, id string) (
 			return "", err
 		}
 		logger.Log.Error("Error retrieving data from storage", zap.String("message", err.Error()))
-		return "", fmt.Errorf("Failed to get original url: %w", err)
+		return "", fmt.Errorf("failed to get original url: %w", err)
 	}
 	return original, nil
 
@@ -112,7 +120,7 @@ func (service *endpointService) CreateShortURLsBatch(
 	host string,
 ) ([]models.BatchShortenResponse, error) {
 	if len(req) == 0 {
-		return nil, ErrorEmptyBatch
+		return nil, ErrEmptyBatch
 	}
 
 	items := make([]repository.Row, 0, len(req))
@@ -120,13 +128,13 @@ func (service *endpointService) CreateShortURLsBatch(
 
 	for _, r := range req {
 		if r.OriginalURL == "" {
-			return nil, ErrorEmptyUrl
+			return nil, ErrEmptyURL
 		}
 
-		id := utils.GenerateId(service.idSize)
-		shortURL, err := service.getUrlFromId(id, scheme, host)
+		id := utils.GenerateID(service.idSize)
+		shortURL, err := service.getURLFromID(id, scheme, host)
 		if err != nil {
-			return nil, fmt.Errorf("Failed to add batch to storage: %w", err)
+			return nil, fmt.Errorf("failed to add batch to storage: %w", err)
 		}
 
 		items = append(items, repository.Row{
@@ -141,7 +149,7 @@ func (service *endpointService) CreateShortURLsBatch(
 	}
 
 	if err := service.storage.AddBatch(ctx, items); err != nil {
-		return nil, fmt.Errorf("Failed to add batch to storage: %w", err)
+		return nil, fmt.Errorf("failed to add batch to storage: %w", err)
 	}
 
 	return resp, nil
@@ -159,7 +167,7 @@ func (service *endpointService) GetUserURLs(ctx context.Context, scheme, host st
 	result := make([]models.UserURL, 0, len(rows))
 	for _, row := range rows {
 		// create full short url
-		shortURL, err := service.getUrlFromId(row.ShortURL, scheme, host)
+		shortURL, err := service.getURLFromID(row.ShortURL, scheme, host)
 		if err != nil {
 			return nil, err
 		}

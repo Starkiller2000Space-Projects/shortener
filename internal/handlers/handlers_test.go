@@ -35,8 +35,8 @@ func newTestRouter(service *MockService, withAudit, withAuth bool) http.Handler 
 		r.Use(withTestAuth)
 	}
 	r.Get("/ping", h.PingHandler)
-	r.Get("/{id}", h.IdHandler)
-	r.Post("/", h.PostUrlHandler)
+	r.Get("/{id}", h.IDHandler)
+	r.Post("/", h.PostURLHandler)
 	r.Route("/api", func(api chi.Router) {
 		api.Post("/shorten", h.ShortenJSONHandler)
 		api.Post("/shorten/batch", h.PostBatchShortenHandler)
@@ -49,16 +49,16 @@ func newTestRouter(service *MockService, withAudit, withAuth bool) http.Handler 
 func withTestAudit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		auditData := &models.AuditData{}
-		ctx := context.WithValue(r.Context(), audit.AuditKey, auditData)
+		ctx := audit.SetAuditDataToContext(r.Context(), auditData)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
-var testUserId string = "123user"
+var testUserID string = "123user"
 
 func withTestAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ctx := requests.SetUserIDToContext(r.Context(), testUserId)
+		ctx := requests.SetUserIDToContext(r.Context(), testUserID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -96,9 +96,9 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path, body string, o
 }
 
 // test getting url by its id
-func TestIdHandler(t *testing.T) {
+func TestIDHandler(t *testing.T) {
 	fixedID := "test1234"
-	existingUrl := "https://example.com/"
+	existingURL := "https://example.com/"
 
 	type want struct {
 		code        int
@@ -120,14 +120,14 @@ func TestIdHandler(t *testing.T) {
 			name:   "positive test",
 			method: http.MethodGet,
 			service: &serviceData{
-				value: existingUrl,
+				value: existingURL,
 				err:   nil,
 			},
 			audit: true,
 			want: want{
 				code:        http.StatusTemporaryRedirect,
 				contentType: "text/plain",
-				location:    existingUrl,
+				location:    existingURL,
 			},
 		},
 		{
@@ -172,7 +172,7 @@ func TestIdHandler(t *testing.T) {
 			name:   "no audit",
 			method: http.MethodGet,
 			service: &serviceData{
-				value: existingUrl,
+				value: existingURL,
 				err:   nil,
 			},
 			audit: false,
@@ -194,6 +194,7 @@ func TestIdHandler(t *testing.T) {
 			ts := httptest.NewServer(newTestRouter(mockService, test.audit, false))
 			defer ts.Close()
 			resp, _ := testRequest(t, ts, test.method, fmt.Sprintf("/%v", fixedID), "")
+			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 			assert.Equal(t, test.want.contentType, resp.Header.Get("Content-Type"))
 			assert.Equal(t, test.want.location, resp.Header.Get("Location"))
@@ -201,27 +202,26 @@ func TestIdHandler(t *testing.T) {
 	}
 }
 
-func BenchmarkIdHandler(b *testing.B) {
+func BenchmarkIDHandler(b *testing.B) {
 	mockSvc := NewMockService(b)
 	mockSvc.On("GetOriginalURL", mock.Anything, "abc123").Return("https://example.com", nil)
 
 	handler := NewHandler(mockSvc, 10)
 	req := httptest.NewRequest(http.MethodGet, "/abc123", nil)
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
-	req = req.WithContext(context.WithValue(context.WithValue(req.Context(), chi.RouteCtxKey, chi.NewRouteContext()), audit.AuditKey, &models.AuditData{}))
+	req = req.WithContext(audit.SetAuditDataToContext(context.WithValue(req.Context(), chi.RouteCtxKey, chi.NewRouteContext()), &models.AuditData{}))
 	chi.RouteContext(req.Context()).URLParams.Add("id", "abc123")
 
 	w := httptest.NewRecorder()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		handler.IdHandler(w, req)
+	for b.Loop() {
+		handler.IDHandler(w, req)
 		w.Flush()
 	}
 }
 
 // test adding url to storage
-func TestPostUrlHandler(t *testing.T) {
+func TestPostURLHandler(t *testing.T) {
 	fixedID := "test1234"
 
 	type want struct {
@@ -299,7 +299,7 @@ func TestPostUrlHandler(t *testing.T) {
 			method: http.MethodPost,
 			service: &serviceData{
 				value: "",
-				err:   service.ErrorEmptyUrl,
+				err:   service.ErrEmptyURL,
 			},
 			request: "https://www.example0.com/",
 			audit:   true,
@@ -315,7 +315,7 @@ func TestPostUrlHandler(t *testing.T) {
 			method: http.MethodPost,
 			service: &serviceData{
 				value: "",
-				err:   service.ErrorDuplicate,
+				err:   service.ErrDuplicate,
 			},
 			request: "https://www.example0.com/",
 			audit:   true,
@@ -354,20 +354,21 @@ func TestPostUrlHandler(t *testing.T) {
 			ts := httptest.NewServer(newTestRouter(mockService, test.audit, false))
 			defer ts.Close()
 			resp, body := testRequest(t, ts, test.method, "/", test.request)
+			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 			if !test.want.success {
 				return
 			}
 			assert.Equal(t, test.want.contentType, resp.Header.Get("Content-Type"))
-			parsedUrl, err := url.Parse(body)
+			parsedURL, err := url.Parse(body)
 			require.NoError(t, err)
-			createdId := strings.TrimLeft(parsedUrl.Path, "/")
-			assert.Equal(t, fixedID, createdId)
+			createdID := strings.TrimLeft(parsedURL.Path, "/")
+			assert.Equal(t, fixedID, createdID)
 		})
 	}
 }
 
-func BenchmarkPostUrlHandler(b *testing.B) {
+func BenchmarkPostURLHandler(b *testing.B) {
 	mockSvc := NewMockService(b)
 	mockSvc.EXPECT().CreateShortURL(mock.Anything, "https://example.com", mock.Anything, mock.Anything).
 		Return("http://localhost/abc123", nil)
@@ -375,13 +376,12 @@ func BenchmarkPostUrlHandler(b *testing.B) {
 	handler := NewHandler(mockSvc, 10)
 	body := []byte("https://example.com")
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
-	req = req.WithContext(context.WithValue(requests.SetUserIDToContext(req.Context(), "user123"), audit.AuditKey, &models.AuditData{}))
+	req = req.WithContext(audit.SetAuditDataToContext(requests.SetUserIDToContext(req.Context(), "user123"), &models.AuditData{}))
 	w := httptest.NewRecorder()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req.Body = io.NopCloser(bytes.NewReader(body))
-		handler.PostUrlHandler(w, req)
+		handler.PostURLHandler(w, req)
 		w.Flush()
 	}
 }
@@ -450,6 +450,7 @@ func TestPingHandler(t *testing.T) {
 			ts := httptest.NewServer(newTestRouter(mockService, false, false))
 			defer ts.Close()
 			resp, _ := testRequest(t, ts, test.method, "/ping", "")
+			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 		})
 	}
@@ -464,8 +465,7 @@ func BenchmarkPingHandler(b *testing.B) {
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
 	w := httptest.NewRecorder()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		handler.PingHandler(w, req)
 		w.Flush()
 	}

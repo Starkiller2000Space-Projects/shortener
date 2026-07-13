@@ -22,32 +22,32 @@ func TestFileStorage_AddAndGet(t *testing.T) {
 	require.NoError(t, err)
 	ctx := context.Background()
 	// check id is not present in storage
-	testId := "id1"
-	testUrl := "http://example.com"
-	got, err := store.Get(ctx, testId)
+	testID := "id1"
+	testURL := "http://example.com"
+	got, err := store.Get(ctx, testID)
 	assert.Error(t, err)
 	assert.Equal(t, "", got)
 	// add test id
-	row := Row{ID: testId, OriginalURL: testUrl, UserID: "u1"}
+	row := Row{ID: testID, OriginalURL: testURL, UserID: "u1"}
 	err = store.Add(ctx, row)
 	assert.NoError(t, err)
 	// test id was added to storage
-	got, err = store.Get(ctx, testId)
+	got, err = store.Get(ctx, testID)
 	assert.NoError(t, err)
-	assert.Equal(t, testUrl, got)
+	assert.Equal(t, testURL, got)
 	// check new storage creation leaves data in storage
 	store2, err := NewFileStorage(tmpFile.Name())
 	require.NoError(t, err)
-	got2, err := store2.Get(ctx, testId)
+	got2, err := store2.Get(ctx, testID)
 	assert.NoError(t, err)
-	assert.Equal(t, testUrl, got2)
+	assert.Equal(t, testURL, got2)
 
 	// test cancel request
 	ctx, cancel := context.WithCancel(ctx)
 	cancel()
 	err = store.Add(ctx, row)
 	assert.ErrorIs(t, err, context.Canceled)
-	got, err = store.Get(ctx, testId)
+	got, err = store.Get(ctx, testID)
 	assert.Equal(t, "", got)
 	assert.ErrorIs(t, err, context.Canceled)
 }
@@ -58,13 +58,13 @@ func BenchmarkFileStorageAdd(b *testing.B) {
 	storage, _ := NewFileStorage(tmpFile.Name())
 	ctx := context.Background()
 	data := Row{
-		ID:          utils.GenerateId(8),
+		ID:          utils.GenerateID(8),
 		OriginalURL: "https://example.com",
 		UserID:      "user",
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		data.ID = utils.GenerateId(8)
+
+	for b.Loop() {
+		data.ID = utils.GenerateID(8)
 		_ = storage.Add(ctx, data)
 	}
 }
@@ -76,8 +76,8 @@ func BenchmarkFileStorageGet(b *testing.B) {
 	ctx := context.Background()
 	id := "existing"
 	_ = storage.Add(ctx, Row{ID: id, OriginalURL: "https://example.com", UserID: "user"})
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_, _ = storage.Get(ctx, id)
 	}
 }
@@ -161,15 +161,15 @@ func BenchmarkFileStorageAddBatch(b *testing.B) {
 	items := make([]Row, 10)
 	for i := 0; i < 10; i++ {
 		items[i] = Row{
-			ID:          utils.GenerateId(8),
+			ID:          utils.GenerateID(8),
 			OriginalURL: "https://example.com/" + string(rune(i)),
 			UserID:      "user",
 		}
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		for j := range items {
-			items[j].ID = utils.GenerateId(8)
+			items[j].ID = utils.GenerateID(8)
 		}
 		_ = storage.AddBatch(ctx, items)
 	}
@@ -183,13 +183,13 @@ func BenchmarkFileStorageGetUserURLs(b *testing.B) {
 	userID := "userX"
 	for i := 0; i < 100; i++ {
 		_ = storage.Add(ctx, Row{
-			ID:          utils.GenerateId(8),
+			ID:          utils.GenerateID(8),
 			OriginalURL: "https://example.com/" + string(rune(i)),
 			UserID:      userID,
 		})
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_, _ = storage.GetUserURLs(ctx, userID)
 	}
 }
@@ -245,12 +245,12 @@ func BenchmarkFileStorageDeleteBatch(b *testing.B) {
 	userID := "userDel"
 	ids := make([]string, 10)
 	for i := 0; i < 10; i++ {
-		id := utils.GenerateId(8)
+		id := utils.GenerateID(8)
 		ids[i] = id
 		_ = storage.Add(ctx, Row{ID: id, OriginalURL: "https://example.com", UserID: userID})
 	}
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = storage.DeleteBatch(ctx, userID, ids)
 		for _, id := range ids {
 			_ = storage.Add(ctx, Row{ID: id, OriginalURL: "https://example.com", UserID: userID})

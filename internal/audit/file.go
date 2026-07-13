@@ -1,3 +1,5 @@
+// Package audit implements an audit logging system with multiple observers.
+
 package audit
 
 import (
@@ -10,36 +12,40 @@ import (
 	"go.uber.org/zap"
 )
 
-// file audit observer
-type FileAuditObserver struct {
-	filePath string
-	mu       sync.Mutex
+// fileAuditObserver writes audit events to a file in JSON format,
+// appending each event as a new line.
+type fileAuditObserver struct {
+	file *os.File
+	mu   sync.Mutex
 }
 
-// get new file audit observer
-func NewFileAuditObserver(path string) *FileAuditObserver {
-	return &FileAuditObserver{filePath: path}
-}
-
-// notify in file
-func (f *FileAuditObserver) Notify(event models.AuditEvent) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	file, err := os.OpenFile(f.filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+// NewFileAuditObserver creates a new file audit observer with the given file path.
+func NewFileAuditObserver(path string) (*fileAuditObserver, error) {
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		logger.Log.Error("Failed to open audit file: %v", zap.Error(err))
-		return
+		logger.Log.Error("failed to open audit file", zap.Error(err))
+		return nil, err
 	}
-	defer file.Close()
+	return &fileAuditObserver{file: file}, nil
+}
 
+// Notify writes the audit event to the file.
+// It acquires a lock to ensure thread-safety and logs errors if writing fails.
+func (f *fileAuditObserver) Notify(event models.AuditEvent) {
 	data, err := json.Marshal(event)
 	if err != nil {
-		logger.Log.Error("Failed to marshal audit event: %v", zap.Error(err))
+		logger.Log.Error("failed to marshal audit event", zap.Error(err))
 		return
 	}
-	_, err = file.Write(append(data, '\n'))
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	_, err = f.file.Write(append(data, '\n'))
 	if err != nil {
-		logger.Log.Error("Failed to write audit event: %v", zap.Error(err))
+		logger.Log.Error("failed to write audit event", zap.Error(err))
 	}
+}
+
+// close file observer
+func (f *fileAuditObserver) Stop() error {
+	return f.file.Close()
 }

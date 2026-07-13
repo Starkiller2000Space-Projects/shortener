@@ -1,3 +1,5 @@
+// Package main is the entry point for the URL shortener server.
+
 package main
 
 import (
@@ -31,11 +33,15 @@ func main() {
 	}
 	store, err := repository.GetStorage(configData)
 	if err != nil {
-		log.Fatalf("Unable to create storage: %v", err)
+		logger.Log.Error("Unable to create storage", zap.Error(err))
 	}
-	service := service.NewEndpointService(store, configData.ShowAddr, configData.IdSize)
+	service := service.NewEndpointService(store, configData.ShowAddr, configData.IDSize)
 	handler := handlers.NewHandler(service, configData.MaxParallelWorkers)
-	auditor := audit.InitAudit(configData.AuditFile, configData.AuditURL)
+	auditor, err := audit.InitAudit(configData.AuditFile, configData.AuditURL, configData.MaxParallelWorkers)
+	if err != nil {
+		logger.Log.Error("Unable to initialize audit", zap.Error(err))
+	}
+	defer auditor.Stop()
 	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout, auditor, configData.CookieSecret)
 
 	// use pprof

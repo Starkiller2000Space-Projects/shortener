@@ -1,7 +1,10 @@
+// Package db provides database configuration and connection utilities.
+
 package db
 
 import "time"
 
+// DBConf holds database connection configuration.
 type DBConf struct {
 	URL             string        // database connection url
 	MaxOpenConns    int           // max amount of opened database connections
@@ -10,9 +13,11 @@ type DBConf struct {
 	MigrationsPath  string        // path to folder with migrations files
 }
 
-func NewDbConf(dbUrl string) *DBConf {
+// NewDBConf creates a new DBConf with the provided DSN and default settings.
+// Defaults: MaxOpenConns=10, MaxIdleConns=5, ConnMaxLifetime=5m, MigrationsPath="./migrations".
+func NewDBConf(dbURL string) *DBConf {
 	return &DBConf{
-		URL:             dbUrl,
+		URL:             dbURL,
 		MaxOpenConns:    10,
 		MaxIdleConns:    5,
 		ConnMaxLifetime: 5 * time.Minute,

@@ -53,6 +53,51 @@ func (_c *MockObserver_Notify_Call) RunAndReturn(run func(models.AuditEvent)) *M
 	return _c
 }
 
+// Stop provides a mock function with no fields
+func (_m *MockObserver) Stop() error {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Stop")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// MockObserver_Stop_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Stop'
+type MockObserver_Stop_Call struct {
+	*mock.Call
+}
+
+// Stop is a helper method to define mock.On call
+func (_e *MockObserver_Expecter) Stop() *MockObserver_Stop_Call {
+	return &MockObserver_Stop_Call{Call: _e.mock.On("Stop")}
+}
+
+func (_c *MockObserver_Stop_Call) Run(run func()) *MockObserver_Stop_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *MockObserver_Stop_Call) Return(_a0 error) *MockObserver_Stop_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *MockObserver_Stop_Call) RunAndReturn(run func() error) *MockObserver_Stop_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockObserver creates a new instance of MockObserver. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockObserver(t interface {

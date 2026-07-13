@@ -1,9 +1,12 @@
+// Package middlewares provides HTTP middleware for logging, auth, gzip, and audit.
+
 package middlewares
 
 import (
 	"errors"
 	"net/http"
 
+	"github.com/max-marek-projects/shortener/internal/audit"
 	"github.com/max-marek-projects/shortener/internal/auth"
 	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/max-marek-projects/shortener/internal/requests"
@@ -11,6 +14,10 @@ import (
 	"go.uber.org/zap"
 )
 
+// AuthMiddleware returns a middleware that authenticates users via JWT cookies.
+// If the cookie is missing, it creates a new user ID and sets a new cookie.
+// If the cookie is invalid, it returns 401 Unauthorized.
+// It injects the user ID into the request context for downstream handlers.
 func AuthMiddleware(secretKey string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -33,6 +40,10 @@ func AuthMiddleware(secretKey string) func(http.Handler) http.Handler {
 				}
 			}
 			// now err is nil, userID is valid
+			auditData, ok := audit.GetAuditDataFromContext(r.Context())
+			if ok {
+				auditData.UserID = userID
+			}
 			ctx := requests.SetUserIDToContext(r.Context(), userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

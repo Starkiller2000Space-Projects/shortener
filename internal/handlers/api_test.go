@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -73,7 +72,7 @@ func TestShortenJSONHandler(t *testing.T) {
 			request: `{"url":""}`,
 			service: &serviceData{
 				value: "",
-				err:   service.ErrorEmptyUrl,
+				err:   service.ErrEmptyURL,
 			},
 			audit: true,
 			want: want{
@@ -87,7 +86,7 @@ func TestShortenJSONHandler(t *testing.T) {
 			request: `{"url":"https://www.example2.com/"}`,
 			service: &serviceData{
 				value: "",
-				err:   service.ErrorDuplicate,
+				err:   service.ErrDuplicate,
 			},
 			audit: true,
 			want: want{
@@ -134,6 +133,7 @@ func TestShortenJSONHandler(t *testing.T) {
 			defer ts.Close()
 			// make request
 			resp, body := testRequest(t, ts, test.method, "/api/shorten", test.request)
+			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 			if !test.want.success {
 				return
@@ -142,10 +142,10 @@ func TestShortenJSONHandler(t *testing.T) {
 			assert.Equal(t, test.want.contentType, resp.Header.Get("Content-Type"))
 			var responseData models.ShortenResponse
 			require.NoError(t, json.Unmarshal([]byte(body), &responseData))
-			parsedUrl, err := url.Parse(responseData.Result)
+			parsedURL, err := url.Parse(responseData.Result)
 			require.NoError(t, err)
-			createdId := strings.TrimLeft(parsedUrl.Path, "/")
-			assert.Equal(t, fixedID, createdId)
+			createdID := strings.TrimLeft(parsedURL.Path, "/")
+			assert.Equal(t, fixedID, createdID)
 			var requestData models.ShortenRequest
 			require.NoError(t, json.Unmarshal([]byte(test.request), &requestData))
 		})
@@ -162,11 +162,10 @@ func BenchmarkShortenJSONHandler(b *testing.B) {
 	reqData := models.ShortenRequest{URL: "https://example.com"}
 	jsonBody, _ := json.Marshal(reqData)
 	req := httptest.NewRequest(http.MethodPost, "/api/shorten", io.NopCloser(bytes.NewReader(jsonBody)))
-	req = req.WithContext(context.WithValue(requests.SetUserIDToContext(req.Context(), "user123"), audit.AuditKey, &models.AuditData{}))
+	req = req.WithContext(audit.SetAuditDataToContext(requests.SetUserIDToContext(req.Context(), "user123"), &models.AuditData{}))
 	w := httptest.NewRecorder()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req.Body = io.NopCloser(bytes.NewReader(jsonBody))
 		handler.ShortenJSONHandler(w, req)
 		w.Flush()
@@ -243,7 +242,7 @@ func TestPostBatchShortenHandler(t *testing.T) {
 			request: `[{"correlation_id": "1", "original_url": ""},{"correlation_id": "2", "original_url": "https://www.example1.com/"}]`,
 			service: &serviceData{
 				value: nil,
-				err:   service.ErrorEmptyUrl,
+				err:   service.ErrEmptyURL,
 			},
 			want: want{
 				code:    http.StatusBadRequest,
@@ -256,7 +255,7 @@ func TestPostBatchShortenHandler(t *testing.T) {
 			request: `[{"correlation_id": "1", "original_url": "https://www.example0.com/"},{"correlation_id": "2", "original_url": "https://www.example1.com/"}]`,
 			service: &serviceData{
 				value: nil,
-				err:   fmt.Errorf("Unknown error"),
+				err:   fmt.Errorf("unknown error"),
 			},
 			want: want{
 				code:    http.StatusInternalServerError,
@@ -277,6 +276,7 @@ func TestPostBatchShortenHandler(t *testing.T) {
 			ts := httptest.NewServer(newTestRouter(mockService, false, false))
 			defer ts.Close()
 			resp, body := testRequest(t, ts, test.method, "/api/shorten/batch", test.request)
+			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 			if !test.want.success {
 				return
@@ -314,8 +314,7 @@ func BenchmarkPostBatchShortenHandler(b *testing.B) {
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
 	w := httptest.NewRecorder()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req.Body = io.NopCloser(bytes.NewReader(jsonBody))
 		handler.PostBatchShortenHandler(w, req)
 		w.Flush()
@@ -402,6 +401,7 @@ func TestGetUserURLsHandler(t *testing.T) {
 			ts := httptest.NewServer(newTestRouter(mockService, false, false))
 			defer ts.Close()
 			resp, body := testRequest(t, ts, test.method, "/api/user/urls", "")
+			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 			if !test.want.success {
 				return
@@ -432,8 +432,7 @@ func BenchmarkGetUserURLsHandler(b *testing.B) {
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
 	w := httptest.NewRecorder()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		handler.GetUserURLsHandler(w, req)
 		w.Flush()
 	}
@@ -531,6 +530,7 @@ func TestDeleteUserURLsHandler(t *testing.T) {
 			ts := httptest.NewServer(newTestRouter(mockService, false, test.auth))
 			defer ts.Close()
 			resp, _ := testRequest(t, ts, test.method, "/api/user/urls", test.request)
+			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 		})
 	}
@@ -547,8 +547,7 @@ func BenchmarkDeleteUserURLsHandler(b *testing.B) {
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
 	w := httptest.NewRecorder()
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		req.Body = io.NopCloser(bytes.NewReader(jsonBody))
 		handler.DeleteUserURLsHandler(w, req)
 		w.Flush()

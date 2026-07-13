@@ -1,3 +1,5 @@
+// Package repository defines storage interfaces and implementations (memory, file, DB).
+
 package repository
 
 import (
@@ -5,13 +7,16 @@ import (
 	"sync"
 )
 
+// memStorage is an in-memory storage backend using maps protected by a RWMutex.
 type memStorage struct {
 	mu      sync.RWMutex
 	data    map[string]urlInfo
 	urlToID map[string]string // originalURL -> id
 }
 
-// Create memory storage
+// NewMemStorage creates a new in-memory storage instance.
+// It initializes internal maps for storing URLs and their mappings.
+// Returns the storage instance and nil error (always successful).
 func NewMemStorage() (*memStorage, error) {
 	return &memStorage{
 		data:    make(map[string]urlInfo),
@@ -19,7 +24,8 @@ func NewMemStorage() (*memStorage, error) {
 	}, nil // error not possible, but output is consistent with other storage types
 }
 
-// add url into storage and return generated id
+// add is the internal version of Add without locking.
+// It assumes the caller holds the mutex.
 func (m *memStorage) add(info Row) error {
 	if existingID, ok := m.urlToID[info.OriginalURL]; ok {
 		return &ErrAlreadyExists{ExistingID: existingID}
@@ -65,7 +71,8 @@ func (m *memStorage) Ping(ctx context.Context) error {
 	return nil // always available
 }
 
-// add multiple values as batch
+// addBatch is the internal version of AddBatch without locking.
+// It assumes the caller holds the mutex.
 func (m *memStorage) addBatch(items []Row) error {
 	for _, item := range items {
 		if _, ok := m.urlToID[item.OriginalURL]; ok {
@@ -112,7 +119,8 @@ func (m *memStorage) GetUserURLs(ctx context.Context, userID string) ([]UserURL,
 	return result, nil
 }
 
-// delete batch by user id and short ids
+// deleteBatch is the internal version of DeleteBatch without locking.
+// It assumes the caller holds the mutex.
 func (m *memStorage) deleteBatch(userID string, shortIDs []string) error {
 	for _, id := range shortIDs {
 		if info, ok := m.data[id]; ok && info.userID == userID {

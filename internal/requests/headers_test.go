@@ -38,7 +38,7 @@ func TestParseAcceptEncoding(t *testing.T) {
 
 func BenchmarkParseAcceptEncoding(b *testing.B) {
 	header := "gzip, deflate, br;q=0.9"
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		ParseAcceptEncoding(header)
 	}
 }
@@ -75,7 +75,7 @@ func TestParseContentEncoding(t *testing.T) {
 
 func BenchmarkParseContentEncoding(b *testing.B) {
 	header := "gzip, deflate"
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		ParseContentEncoding(header)
 	}
 }
