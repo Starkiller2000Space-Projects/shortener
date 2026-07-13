@@ -15,7 +15,8 @@ import (
 func TestGzipMiddleware(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"test":true}`))
+		_, err := w.Write([]byte(`{"test":true}`))
+		require.NoError(t, err)
 	})
 	gzipHandler := GzipMiddleware(handler)
 
@@ -39,8 +40,10 @@ func TestGzipMiddleware(t *testing.T) {
 	t.Run("content-encoding gzip", func(t *testing.T) {
 		var buf bytes.Buffer
 		gz := gzip.NewWriter(&buf)
-		gz.Write([]byte(`{"data":"compressed"}`))
-		gz.Close()
+		_, err := gz.Write([]byte(`{"data":"compressed"}`))
+		require.NoError(t, err)
+		err = gz.Close()
+		require.NoError(t, err)
 
 		req := httptest.NewRequest(http.MethodPost, "/", &buf)
 		req.Header.Set("Content-Encoding", "gzip")
@@ -55,7 +58,8 @@ func TestGzipMiddleware(t *testing.T) {
 
 func BenchmarkGzipMiddleware_NoCompression(b *testing.B) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("hello world"))
+		_, err := w.Write([]byte("hello world"))
+		require.NoError(b, err)
 	})
 	handler := GzipMiddleware(next)
 
@@ -70,7 +74,8 @@ func BenchmarkGzipMiddleware_NoCompression(b *testing.B) {
 func BenchmarkGzipMiddleware_WithAcceptGzip(b *testing.B) {
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"ok"}`))
+		_, err := w.Write([]byte(`{"status":"ok"}`))
+		require.NoError(b, err)
 	})
 	handler := GzipMiddleware(next)
 
@@ -86,8 +91,10 @@ func BenchmarkGzipMiddleware_WithAcceptGzip(b *testing.B) {
 func BenchmarkGzipMiddleware_WithGzipBody(b *testing.B) {
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
-	gz.Write([]byte(`{"data":"test"}`))
-	gz.Close()
+	_, err := gz.Write([]byte(`{"data":"test"}`))
+	require.NoError(b, err)
+	err = gz.Close()
+	require.NoError(b, err)
 	body := buf.Bytes()
 
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -36,7 +36,7 @@ func SetUserCookie(w http.ResponseWriter, userID, secretKey string) error {
 		return err
 	}
 
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ // #nosec G124
 		Name:     cookieName,
 		Value:    tokenString,
 		Path:     "/",

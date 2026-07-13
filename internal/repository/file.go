@@ -111,7 +111,7 @@ func (fs *fileStorage) appendRecords(recs []fileRecord) error {
 	if len(recs) == 0 {
 		return nil
 	}
-	f, err := os.OpenFile(fs.filePath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	f, err := os.OpenFile(fs.filePath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}
@@ -171,17 +171,18 @@ func (fs *fileStorage) Ping(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to check storage file: %w", err)
 		}
-		f.Close()
-		return nil
+		return f.Close()
 	} else if os.IsNotExist(err) {
 		dir := filepath.Dir(fs.filePath)
 		tmp, err := os.CreateTemp(dir, "ping_test_*") // create temporary file in order to check permissions
 		if err != nil {
 			return fmt.Errorf("failed to check storage file: %w", err)
 		}
-		tmp.Close()
-		os.Remove(tmp.Name())
-		return nil
+		err = tmp.Close()
+		if err != nil {
+			return err
+		}
+		return os.Remove(tmp.Name())
 	} else {
 		return fmt.Errorf("failed to check storage file: %w", err)
 	}
@@ -190,7 +191,7 @@ func (fs *fileStorage) Ping(ctx context.Context) error {
 // addBatch is the internal version of AddBatch without locking.
 // It assumes the caller holds the mutex.
 func (fs *fileStorage) addBatch(items []Row) error {
-	file, err := os.OpenFile(fs.filePath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
+	file, err := os.OpenFile(fs.filePath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0600)
 	if err != nil {
 		return fmt.Errorf("failed to add batch to file: %w", err)
 	}

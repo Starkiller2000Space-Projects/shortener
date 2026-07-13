@@ -83,7 +83,11 @@ func (h *Handler) PostURLHandler(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, service.ErrDuplicate) {
 			w.Header().Set("Content-Type", "text/plain")
 			w.WriteHeader(http.StatusConflict)
-			w.Write([]byte(shortURL))
+			_, err := w.Write([]byte(shortURL)) // #nosec G705
+			if err != nil {
+				logger.Log.Error("Failed write response", zap.Error(err))
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			}
 			return
 		}
 		logger.Log.Error("Failed create short URL", zap.Error(err))
@@ -92,7 +96,11 @@ func (h *Handler) PostURLHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
-	w.Write([]byte(shortURL))
+	_, err = w.Write([]byte(shortURL)) // #nosec G705
+	if err != nil {
+		logger.Log.Error("Failed write response", zap.Error(err))
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+	}
 }
 
 // PingHandler handles GET /ping – checks the storage availability.

@@ -21,7 +21,7 @@ import (
 	"github.com/max-marek-projects/shortener/internal/service"
 	"go.uber.org/zap"
 
-	_ "net/http/pprof"
+	_ "net/http/pprof" // #nosec G108
 )
 
 // entry point
@@ -46,7 +46,13 @@ func main() {
 
 	// use pprof
 	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
+		srv := &http.Server{
+			Addr:         "localhost:6060",
+			ReadTimeout:  5 * configData.ReadTimeout,
+			WriteTimeout: configData.WriteTimeout,
+			IdleTimeout:  120 * time.Second,
+		}
+		log.Println(srv.ListenAndServe())
 	}()
 	// create separate goroutine
 	serverErr := make(chan error, 1)

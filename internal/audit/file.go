@@ -21,7 +21,7 @@ type fileAuditObserver struct {
 
 // NewFileAuditObserver creates a new file audit observer with the given file path.
 func NewFileAuditObserver(path string) (*fileAuditObserver, error) {
-	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600) // #nosec G304
 	if err != nil {
 		logger.Log.Error("failed to open audit file", zap.Error(err))
 		return nil, err

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/max-marek-projects/shortener/internal/audit"
 	"github.com/max-marek-projects/shortener/internal/logger"
@@ -46,7 +47,11 @@ func (h *Handler) ShortenJSONHandler(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, service.ErrDuplicate) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusConflict)
-			json.NewEncoder(w).Encode(models.ShortenResponse{Result: shortURL})
+			err := json.NewEncoder(w).Encode(models.ShortenResponse{Result: shortURL})
+			if err != nil {
+				logger.Log.Error("Failed to encode result", zap.Error(err))
+				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+			}
 			return
 		}
 		logger.Log.Error("Failed to create short url", zap.Error(err))
@@ -144,10 +149,12 @@ func (h *Handler) DeleteUserURLsHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var sem = make(chan struct{}, h.maxParallelWorkers)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	go func() {
+		defer cancel()
 		sem <- struct{}{}
 		defer func() { <-sem }()
-		if err := h.service.DeleteUserURLs(context.Background(), userID, shortIDs); err != nil {
+		if err := h.service.DeleteUserURLs(ctx, userID, shortIDs); err != nil {
 			logger.Log.Error("Failed to delete user URLs", zap.Error(err))
 		}
 	}()

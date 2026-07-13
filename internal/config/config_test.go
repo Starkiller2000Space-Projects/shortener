@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // test parsing variables from flags
@@ -38,7 +39,7 @@ func TestLoadConfig_Flags(t *testing.T) {
 
 	cfg := LoadConfig()
 
-	expected := &Config{
+	expected := &Config{ // #nosec G101
 		RunAddr:            ":9090",
 		ShowAddr:           "https://flag-example.com",
 		IDSize:             25,
@@ -101,7 +102,7 @@ func TestLoadConfig_Env(t *testing.T) {
 	// clear flags and set env vars
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	os.Args = []string{"cmd"}
-	for envName, envVal := range map[string]string{
+	for envName, envVal := range map[string]string{ // #nosec G101
 		"SERVER_ADDRESS":       ":9999",
 		"BASE_URL":             "https://env-example.com",
 		"ID_SIZE":              "12",
@@ -115,12 +116,13 @@ func TestLoadConfig_Env(t *testing.T) {
 		"READ_TIMEOUT":         "5s",
 		"WRITE_TIMEOUT":        "10s",
 	} {
-		os.Setenv(envName, envVal)
+		err := os.Setenv(envName, envVal)
+		require.NoError(t, err)
 	}
 
 	cfg := LoadConfig()
 
-	expected := &Config{
+	expected := &Config{ // #nosec G101
 		RunAddr:            ":9999",
 		ShowAddr:           "https://env-example.com",
 		IDSize:             12,
@@ -159,17 +161,22 @@ func TestLoadConfig_EnvOverridesFlags(t *testing.T) {
 	defer func() {
 		os.Args = oldArgs
 		flag.CommandLine = oldFlagCommandLine
-		os.Unsetenv("SERVER_ADDRESS")
-		os.Unsetenv("BASE_URL")
-		os.Unsetenv("LOGGER_LEVEL")
-		os.Unsetenv("FILE_STORAGE_PATH")
-		os.Unsetenv("DATABASE_DSN")
-		os.Unsetenv("COOKIE_SECRET")
-		os.Unsetenv("MAX_PARALLEL_WORKERS")
-		os.Unsetenv("AUDIT_FILE")
-		os.Unsetenv("AUDIT_URL")
-		os.Unsetenv("READ_TIMEOUT")
-		os.Unsetenv("WRITE_TIMEOUT")
+		for _, EnvVarName := range []string{
+			"SERVER_ADDRESS",
+			"BASE_URL",
+			"LOGGER_LEVEL",
+			"FILE_STORAGE_PATH",
+			"DATABASE_DSN",
+			"COOKIE_SECRET",
+			"MAX_PARALLEL_WORKERS",
+			"AUDIT_FILE",
+			"AUDIT_URL",
+			"READ_TIMEOUT",
+			"WRITE_TIMEOUT",
+		} {
+			err := os.Unsetenv(EnvVarName)
+			require.NoError(t, err)
+		}
 	}()
 	// set flags and env vars
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
@@ -178,8 +185,10 @@ func TestLoadConfig_EnvOverridesFlags(t *testing.T) {
 		"-a=:8080",
 		"-b=https://flag-only.com",
 	}
-	os.Setenv("SERVER_ADDRESS", ":9999")
-	os.Setenv("BASE_URL", "https://env-wins.com")
+	err := os.Setenv("SERVER_ADDRESS", ":9999")
+	require.NoError(t, err)
+	err = os.Setenv("BASE_URL", "https://env-wins.com")
+	require.NoError(t, err)
 	// load config
 	cfg := LoadConfig()
 	// validate values

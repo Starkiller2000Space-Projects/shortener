@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -62,8 +63,7 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 	long, err := reader.ReadString('\n')
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading input line: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Error reading input line: %v\n", err)
 	}
 	long = strings.TrimSuffix(long, "\n")
 	// fill container with data
@@ -73,14 +73,12 @@ func main() {
 	// write request
 	request, err := makeRequest(endpoint, data)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating request: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Error creating request: %v\n", err)
 	}
 	// send request and receive response
 	response, err := client.Do(request)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error sending request: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Error sending request: %v\n", err)
 	}
 	// Print status code
 	fmt.Println("Status code ", response.Status)
@@ -88,8 +86,7 @@ func main() {
 	// Read from response
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading response: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Error reading response: %v\n", err)
 	}
 	// Print response
 	fmt.Println(string(body))

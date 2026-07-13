@@ -12,6 +12,7 @@ import (
 	"github.com/max-marek-projects/shortener/internal/requests"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAuditMiddleware_Notify(t *testing.T) {
@@ -25,7 +26,8 @@ func TestAuditMiddleware_Notify(t *testing.T) {
 		auditData.Action = models.AuditFollow
 		auditData.URL = "https://example.com"
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+		_, err := w.Write([]byte("ok"))
+		require.NoError(t, err)
 	})
 	testUserID := "user123"
 
@@ -47,7 +49,8 @@ func TestAuditMiddleware_Notify(t *testing.T) {
 func TestAuditMiddleware_DoNothing(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+		_, err := w.Write([]byte("ok"))
+		require.NoError(t, err)
 	})
 	testUserID := "user123"
 
