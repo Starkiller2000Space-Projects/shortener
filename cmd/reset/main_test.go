@@ -92,7 +92,7 @@ type ResetableStruct struct {
 	ifVar SomeInterface
 	ot    OtherStruct
 	otP   *OtherStruct
-} 
+}
 `
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
@@ -122,8 +122,7 @@ type ResetableStruct struct {
 		}
 	}
 	require.NotNil(t, typeSpec)
-
-	fn, err := generateResetFunc(typeSpec, info)
+	fn, err := generateResetFunc(typeSpec, info, map[types.Object]bool{info.Defs[typeSpec.Name]: true})
 	require.NoError(t, err)
 
 	assert.Equal(t, "Reset", fn.Name.Name)
@@ -179,32 +178,17 @@ type ResetableStruct struct {
 
 	assert.Contains(t, code, `
 	if r.child != nil {
-		if resetter, ok := any(r.child).(interface {
-			Reset()
-		}); ok {
-			resetter.Reset()
-		}
+		r.child.Reset()
 	}`)
 
 	assert.Contains(t, code, `
-	if resetter, ok := r.ifVar.(interface {
-		Reset()
-	}); ok {
-		resetter.Reset()
+	if r.ifVar != nil {
+		r.ifVar.Reset()
 	}`)
 
-	assert.Contains(t, code, `
-	if resetter, ok := any(r.ot).(interface {
-		Reset()
-	}); ok {
-		resetter.Reset()
-	}`)
+	assert.Contains(t, code, "r.ot.Reset()")
 	assert.Contains(t, code, `
 	if r.otP != nil {
-		if resetter, ok := any(r.otP).(interface {
-			Reset()
-		}); ok {
-			resetter.Reset()
-		}
+		r.otP.Reset()
 	}`)
 }

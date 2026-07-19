@@ -94,7 +94,6 @@ func (s *audit) NotifyAll(event models.AuditEvent) *sync.WaitGroup {
 	return &wg
 }
 
-// завершение работы
 func (s *audit) Stop() error {
 	s.once.Do(func() {
 		close(s.taskCh)
