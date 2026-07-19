@@ -108,7 +108,7 @@ func findResetStructs(filename string) (string, []*ast.TypeSpec, *types.Info, er
 		return "", nil, nil, err
 	}
 	var result []*ast.TypeSpec
-	var packageName string = file.Name.Name
+	packageName := file.Name.Name
 	for _, decl := range file.Decls {
 		genDecl, ok := decl.(*ast.GenDecl)
 		if !ok || genDecl.Tok != token.TYPE {
@@ -142,6 +142,9 @@ func findResetStructs(filename string) (string, []*ast.TypeSpec, *types.Info, er
 		[]*ast.File{file},
 		info,
 	)
+	if err != nil {
+		return "", nil, nil, err
+	}
 
 	return packageName, result, info, nil
 }
@@ -395,7 +398,7 @@ func resetStatement(receiver, field string, fieldType types.Type, pointer bool) 
 		}, nil
 	case *types.Interface:
 		if pointer {
-			return nil, fmt.Errorf("Reset not implemented for interface pointers: %v", fieldType)
+			return nil, fmt.Errorf("reset not implemented for interface pointers: %v", fieldType)
 		}
 		return &ast.IfStmt{
 			Init: &ast.AssignStmt{
@@ -502,7 +505,7 @@ func writeGenerated(filename string, f *ast.File) error {
 	return os.WriteFile(
 		filename,
 		buf.Bytes(),
-		0644,
+		0600,
 	)
 }
 
