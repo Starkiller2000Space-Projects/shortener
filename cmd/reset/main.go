@@ -17,9 +17,14 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+// resetFileName is the name of the generated file that will contain Reset method implementations.
 var resetFileName string = "reset.gen.go"
 
-// findRootDir searches for go mod file in parent directories of current directory
+// methodName is the name of the reset method generated for each marked struct.
+var methodName string = "Reset"
+
+// findRootDir searches for go mod file in parent directories starting with current directory
+// Expects current directory
 // Returns root directory and error if any
 func findRootDir(dir string) (string, error) {
 	for {
@@ -37,8 +42,8 @@ func findRootDir(dir string) (string, error) {
 }
 
 // findResetStructs searches for all structs marked with reset comment
-// Expects filename to find marked structs in
-// Returns package name, array of structs and error if any
+// Expects file ast tree to find marked structs in and types info to get actual types from
+// Returns array of ast structs with their actual types and error if any
 func findResetStructs(file *ast.File, typesInfo *types.Info) ([]*ResetStruct, error) {
 	var result []*ResetStruct
 	for _, decl := range file.Decls {
@@ -80,7 +85,7 @@ func hasGenerateReset(commentGroup *ast.CommentGroup) bool {
 }
 
 // generateResetFile generates reset file for current package
-// Expects go package name, array of found nodes for structs definitions
+// Expects go package name, map of package types info and corresponding ast structs, all types marked with reset comments
 // Returns reset file definition and error if any
 func generateResetFile(packageName string, structs map[*types.Info][]*ast.TypeSpec, allResetTypes map[types.Object]bool) (*ast.File, error) {
 	file := &ast.File{
@@ -103,7 +108,7 @@ func generateResetFile(packageName string, structs map[*types.Info][]*ast.TypeSp
 }
 
 // generateResetFunc generates reset func for found struct
-// Expects struct definition
+// Expects struct definition, types info to get actual type from, all types marked with reset comment
 // Returns Reset function declaration node
 func generateResetFunc(typeSpec *ast.TypeSpec, typesInfo *types.Info, allResetTypes map[types.Object]bool) (*ast.FuncDecl, error) {
 	structType := typeSpec.Type.(*ast.StructType)
@@ -125,6 +130,14 @@ func generateResetFunc(typeSpec *ast.TypeSpec, typesInfo *types.Info, allResetTy
 		}
 	}
 	return &ast.FuncDecl{
+		Doc: &ast.CommentGroup{
+			List: []*ast.Comment{
+				{
+					Slash: token.Pos(0),
+					Text:  fmt.Sprintf("// Reset resets all fields of %s to their zero values.", typeSpec.Name.Name),
+				},
+			},
+		},
 		Recv: &ast.FieldList{
 			List: []*ast.Field{
 				{
@@ -138,7 +151,7 @@ func generateResetFunc(typeSpec *ast.TypeSpec, typesInfo *types.Info, allResetTy
 			},
 		},
 
-		Name: ast.NewIdent("Reset"),
+		Name: ast.NewIdent(methodName),
 
 		Type: &ast.FuncType{
 			Params: &ast.FieldList{},
@@ -185,11 +198,14 @@ func assignmentStatement(receiver, field string, pointer bool, zero ast.Expr) as
 	}
 }
 
+// hasResetMethod checks whether current type had Reset method
+// Expects current type
+// Returns true / false whether current type has Reset method
 func hasResetMethod(typ types.Type) bool {
 	mset := types.NewMethodSet(typ)
 	for i := 0; i < mset.Len(); i++ {
 		meth := mset.At(i).Obj().(*types.Func)
-		if meth.Name() == "Reset" {
+		if meth.Name() == methodName {
 			sig := meth.Type().(*types.Signature)
 			if sig.Params().Len() == 0 {
 				return true
@@ -200,7 +216,7 @@ func hasResetMethod(typ types.Type) bool {
 	mset = types.NewMethodSet(ptr)
 	for i := 0; i < mset.Len(); i++ {
 		meth := mset.At(i).Obj().(*types.Func)
-		if meth.Name() == "Reset" {
+		if meth.Name() == methodName {
 			sig := meth.Type().(*types.Signature)
 			if sig.Params().Len() == 0 {
 				return true
@@ -212,6 +228,7 @@ func hasResetMethod(typ types.Type) bool {
 
 // zeroValue returns zero value ast node for various field types
 // Expects receiver name, field name, field type from go/types, whether variable is a pointer or not
+// Returns ast node that represents reset statement for given type
 func resetStatement(receiver, field string, fieldType types.Type, pointer bool, hasReset bool, allResetTypes map[types.Object]bool) (ast.Stmt, error) {
 	logger.Log.Debug("analyzing type", zap.Any("type", fieldType))
 	switch fieldType := fieldType.(type) {
@@ -303,7 +320,7 @@ func resetStatement(receiver, field string, fieldType types.Type, pointer bool, 
 				X: &ast.CallExpr{
 					Fun: &ast.SelectorExpr{
 						X:   expr,
-						Sel: ast.NewIdent("Reset"),
+						Sel: ast.NewIdent(methodName),
 					},
 				},
 			}, nil
@@ -332,7 +349,7 @@ func resetStatement(receiver, field string, fieldType types.Type, pointer bool, 
 						X: &ast.CallExpr{
 							Fun: &ast.SelectorExpr{
 								X:   expr,
-								Sel: ast.NewIdent("Reset"),
+								Sel: ast.NewIdent(methodName),
 							},
 						},
 					}},
@@ -345,6 +362,8 @@ func resetStatement(receiver, field string, fieldType types.Type, pointer bool, 
 	}
 }
 
+// ResetStruct pairs the AST type specification with its types.Object information.
+// It is used to collect structs that are marked with the "// generate:reset" comment.
 type ResetStruct struct {
 	Obj  types.Object
 	Type *ast.TypeSpec

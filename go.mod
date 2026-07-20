@@ -4,7 +4,6 @@ go 1.25.0
 
 require (
 	github.com/caarlos0/env/v11 v11.4.0
-	github.com/denormal/go-gitignore v0.0.0-20180930084346-ae8ad1d07817
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/golang-migrate/migrate/v4 v4.19.1
@@ -23,7 +22,6 @@ require (
 
 require (
 	github.com/ccojocar/zxcvbn-go v1.0.4 // indirect
-	github.com/danwakefield/fnmatch v0.0.0-20160403171240-cbb64ac3d964 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/docker/go-connections v0.6.0 // indirect
 	github.com/gostaticanalysis/analysisutil v0.7.1 // indirect

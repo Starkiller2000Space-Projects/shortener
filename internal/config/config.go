@@ -28,6 +28,7 @@ type Config struct {
 	MaxParallelWorkers int           `env:"MAX_PARALLEL_WORKERS"` // max amount of parallel workers
 	AuditFile          string        `env:"AUDIT_FILE"`           // path to audit file
 	AuditURL           string        `env:"AUDIT_URL"`            // audit service url
+	MigrationsPath     string        `env:"MIGRATIONS"`           // path to migrations
 }
 
 // LoadConfig parses configuration from .env file, environment variables,
@@ -57,6 +58,7 @@ func LoadConfig() *Config {
 	flag.IntVar(&config.MaxParallelWorkers, "max-parallel-workers", 100, "maximum concurrent parallel operations")
 	flag.StringVar(&config.AuditFile, "audit-file", "", "path to audit file")
 	flag.StringVar(&config.AuditURL, "audit-url", "", "audit service url")
+	flag.StringVar(&config.MigrationsPath, "migrations", "./migrations", "path to database migrations")
 	// read flags to temp vars
 	var readSec, writeSec int
 	flag.IntVar(&readSec, "r", 30, "server read timeout in seconds")

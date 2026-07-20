@@ -15,12 +15,12 @@ type DBConf struct {
 
 // NewDBConf creates a new DBConf with the provided DSN and default settings.
 // Defaults: MaxOpenConns=10, MaxIdleConns=5, ConnMaxLifetime=5m, MigrationsPath="./migrations".
-func NewDBConf(dbURL string) *DBConf {
+func NewDBConf(dbURL, migrationsPath string) *DBConf {
 	return &DBConf{
 		URL:             dbURL,
 		MaxOpenConns:    10,
 		MaxIdleConns:    5,
 		ConnMaxLifetime: 5 * time.Minute,
-		MigrationsPath:  "./migrations",
+		MigrationsPath:  migrationsPath,
 	}
 }

@@ -27,12 +27,12 @@ func NewPool[T Resetter]() *pool[T] {
 	}
 }
 
-// Get
+// Get gets item from cool
 func (p *pool[T]) Get() T {
 	return p.p.Get().(T)
 }
 
-// Put
+// Put puts single item in pool
 func (p *pool[T]) Put(x T) {
 	x.Reset()
 	p.p.Put(x)
