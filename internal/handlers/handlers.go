@@ -1,5 +1,4 @@
 // Package handlers implements HTTP endpoints for URL shortening and redirection.
-
 package handlers
 
 import (

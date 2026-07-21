@@ -1,10 +1,15 @@
 package main
 
 import (
+	"log"
+	"regexp"
+
 	"github.com/gostaticanalysis/nilerr"
 	"github.com/max-marek-projects/shortener/cmd/staticlint/exitcheck"
+	"github.com/max-marek-projects/shortener/internal/logger"
 	"github.com/securego/gosec/v2/goanalysis"
 	"github.com/timakin/bodyclose/passes/bodyclose"
+	"go.uber.org/zap"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/multichecker"
 	"golang.org/x/tools/go/analysis/passes/appends"
@@ -42,10 +47,20 @@ import (
 	"golang.org/x/tools/go/analysis/passes/unsafeptr"
 	"golang.org/x/tools/go/analysis/passes/unusedresult"
 	"golang.org/x/tools/go/analysis/passes/waitgroup"
+	"honnef.co/go/tools/analysis/lint"
+	"honnef.co/go/tools/quickfix"
+	"honnef.co/go/tools/simple"
 	"honnef.co/go/tools/staticcheck"
+	"honnef.co/go/tools/stylecheck"
 )
 
 func main() {
+	// initialize logger for debugging
+	err := logger.Initialize("DEBUG")
+	if err != nil {
+		log.Fatalf("Unable to initialize logger: %v", err)
+	}
+
 	// standard array obtained from https://go.googlesource.com/tools/+/28ff1811c64c77737ccead3a5fc3b8bcb9dfaef4/go/analysis/suite/vet/vet.go
 	var allAnalyzers = []*analysis.Analyzer{
 		appends.Analyzer,
@@ -87,27 +102,22 @@ func main() {
 		waitgroup.Analyzer,
 	}
 
+	// allowed analyzers
+	var sRulePattern = regexp.MustCompile(`^(?:S|ST|SA|QF)\d+$`)
+	var analyzerGroups = [][]*lint.Analyzer{
+		staticcheck.Analyzers,
+		simple.Analyzers,
+		stylecheck.Analyzers,
+		quickfix.Analyzers,
+	}
+
 	// staticcheck
-	for _, a := range staticcheck.Analyzers {
-		// add SA analyzers
-		if len(a.Analyzer.Name) >= 2 && a.Analyzer.Name[:2] == "SA" {
-			allAnalyzers = append(allAnalyzers, a.Analyzer)
-			continue
-		}
-		// add ST analyzers
-		if len(a.Analyzer.Name) >= 2 && a.Analyzer.Name[:2] == "ST" {
-			allAnalyzers = append(allAnalyzers, a.Analyzer)
-			continue
-		}
-		// add S analyzers
-		if len(a.Analyzer.Name) >= 1 && a.Analyzer.Name[:1] == "S" {
-			allAnalyzers = append(allAnalyzers, a.Analyzer)
-			continue
-		}
-		// add QF analyzers
-		if len(a.Analyzer.Name) >= 2 && a.Analyzer.Name[:2] == "QF" {
-			allAnalyzers = append(allAnalyzers, a.Analyzer)
-			continue
+	for _, analyzerGroup := range analyzerGroups {
+		for _, a := range analyzerGroup {
+			if sRulePattern.MatchString(a.Analyzer.Name) {
+				logger.Log.Debug("Added analyzer", zap.String("name", a.Analyzer.Name))
+				allAnalyzers = append(allAnalyzers, a.Analyzer)
+			}
 		}
 	}
 

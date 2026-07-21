@@ -1,5 +1,4 @@
 // Package db provides database configuration and connection utilities.
-
 package db
 
 import "time"

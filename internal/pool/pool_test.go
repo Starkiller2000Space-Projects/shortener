@@ -11,7 +11,7 @@ type testResetter struct{ val int }
 func (t *testResetter) Reset() { t.val = 0 }
 
 func TestPool(t *testing.T) {
-	p := NewPool[*testResetter]()
+	p := NewPool(func() *testResetter { return &testResetter{} })
 	obj := p.Get()
 	obj.val = 42
 	p.Put(obj)

@@ -1,4 +1,4 @@
-// models package defines data structures used across the application.
+// Package models defines data structures used across the application.
 package models
 
 // AuditAction represents the type of audit event.

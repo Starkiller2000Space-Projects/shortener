@@ -1,5 +1,4 @@
 // Package logger initializes and provides a global zap logger.
-
 package logger
 
 import (

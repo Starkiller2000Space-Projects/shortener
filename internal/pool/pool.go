@@ -1,7 +1,7 @@
+// Package pool provides generic pool initialization and usage utilities.
 package pool
 
 import (
-	"reflect"
 	"sync"
 )
 
@@ -16,12 +16,11 @@ type pool[T Resetter] struct {
 }
 
 // NewPool creates new pool pointer
-func NewPool[T Resetter]() *pool[T] {
+func NewPool[T Resetter](newFunc func() T) *pool[T] {
 	return &pool[T]{
 		p: sync.Pool{
 			New: func() any {
-				var t T
-				return reflect.New(reflect.TypeOf(t).Elem()).Interface()
+				return newFunc()
 			},
 		},
 	}

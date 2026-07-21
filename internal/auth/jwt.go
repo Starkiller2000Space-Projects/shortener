@@ -1,5 +1,4 @@
 // Package auth provides JWT-based authentication and cookie management.
-
 package auth
 
 import (

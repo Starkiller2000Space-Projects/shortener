@@ -1,13 +1,24 @@
 package db
 
 import (
+	"os"
 	"testing"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewDBConf(t *testing.T) {
+	err := godotenv.Load("../../.env")
+	if err != nil && !os.IsNotExist(err) {
+		require.NoError(t, err)
+	}
+	dsn := os.Getenv("TEST_DATABASE_DSN")
+	if dsn == "" {
+		t.Skip("TEST_DATABASE_DSN not set, skipping integration test")
+	}
 	tests := []struct {
 		name     string
 		dbURL    string
@@ -16,10 +27,10 @@ func TestNewDBConf(t *testing.T) {
 	}{
 		{
 			name:    "typical",
-			dbURL:   "postgres://user:pass@localhost:5432/db",
+			dbURL:   dsn,
 			migPath: "./migrations",
 			expected: &DBConf{
-				URL:             "postgres://user:pass@localhost:5432/db",
+				URL:             dsn,
 				MaxOpenConns:    10,
 				MaxIdleConns:    5,
 				ConnMaxLifetime: 5 * time.Minute,
@@ -28,10 +39,10 @@ func TestNewDBConf(t *testing.T) {
 		},
 		{
 			name:    "empty migrations path",
-			dbURL:   "postgres://user@localhost/db",
+			dbURL:   dsn,
 			migPath: "",
 			expected: &DBConf{
-				URL:             "postgres://user@localhost/db",
+				URL:             dsn,
 				MaxOpenConns:    10,
 				MaxIdleConns:    5,
 				ConnMaxLifetime: 5 * time.Minute,

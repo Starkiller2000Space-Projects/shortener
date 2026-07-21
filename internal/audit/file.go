@@ -1,5 +1,4 @@
 // Package audit implements an audit logging system with multiple observers.
-
 package audit
 
 import (

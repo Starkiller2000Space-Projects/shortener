@@ -1,5 +1,4 @@
 // Package config handles application configuration from flags, env, and .env.
-
 package config
 
 import (
