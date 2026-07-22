@@ -4,6 +4,10 @@ lint:
 	gofmt -w .
 	goimports -w .
 
+
+staticlint:
+	go run ./cmd/staticlint/main.go ./...
+
 test:
 	go test -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out | grep total

@@ -16,7 +16,8 @@ func TestFileStorage_AddAndGet(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "storage_test_*.json")
 	require.NoError(t, err)
 	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
+	err = tmpFile.Close()
+	require.NoError(t, err)
 	// create storage
 	store, err := NewFileStorage(tmpFile.Name())
 	require.NoError(t, err)
@@ -96,7 +97,8 @@ func TestFileStorage_Ping(t *testing.T) {
 	tmpFileClosed, err := os.CreateTemp("", "storage_test_*.json")
 	require.NoError(t, err)
 	defer os.Remove(tmpFileClosed.Name())
-	tmpFileClosed.Close()
+	err = tmpFileClosed.Close()
+	require.NoError(t, err)
 	// ping with existing file
 	store, err = NewFileStorage(tmpFileClosed.Name())
 	require.NoError(t, err)
@@ -110,7 +112,8 @@ func TestFileStorage_AddBatch(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "storage_test_*.json")
 	require.NoError(t, err)
 	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
+	err = tmpFile.Close()
+	require.NoError(t, err)
 	// create storage
 	store, err := NewFileStorage(tmpFile.Name())
 	require.NoError(t, err)
@@ -200,7 +203,8 @@ func TestFileStorage_DeleteBatch(t *testing.T) {
 	tmpFile, err := os.CreateTemp("", "storage_test_*.json")
 	require.NoError(t, err)
 	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
+	err = tmpFile.Close()
+	require.NoError(t, err)
 	// create storage
 	store, err := NewFileStorage(tmpFile.Name())
 	require.NoError(t, err)

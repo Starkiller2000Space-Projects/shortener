@@ -29,7 +29,7 @@ func TestFileAuditObserver_Notify(t *testing.T) {
 	}
 	observer.Notify(event)
 	// check value added
-	data, err := os.ReadFile(filePath)
+	data, err := os.ReadFile(filePath) // #nosec G304
 	require.NoError(t, err)
 	lines := string(data)
 	require.NotEmpty(t, lines)

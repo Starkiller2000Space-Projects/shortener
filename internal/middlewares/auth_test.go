@@ -17,7 +17,8 @@ func TestAuthMiddleware_Authorized(t *testing.T) {
 	testSecretKey := "12345"
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+		_, err := w.Write([]byte("ok"))
+		require.NoError(t, err)
 	})
 	authHandler := AuthMiddleware(testSecretKey)(handler)
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -35,7 +36,8 @@ func TestAuthMiddleware_Unauthorized(t *testing.T) {
 	testSecretKey := "12345"
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+		_, err := w.Write([]byte("ok"))
+		require.NoError(t, err)
 		contextUserID, ok := requests.GetUserIDFromContext(r.Context())
 		assert.True(t, ok)
 		assert.NotEqual(t, contextUserID, "")
@@ -54,12 +56,13 @@ func TestAuthMiddleware_InvalidCookie(t *testing.T) {
 	testSecretKey := "12345"
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
+		_, err := w.Write([]byte("ok"))
+		require.NoError(t, err)
 	})
 	authHandler := AuthMiddleware(testSecretKey)(handler)
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	w := httptest.NewRecorder()
-	req.AddCookie(&http.Cookie{
+	req.AddCookie(&http.Cookie{ // #nosec G124
 		Name:     "token",
 		Value:    "invalid token",
 		Path:     "/",
