@@ -5,6 +5,11 @@
 *.so
 *.dylib
 
+# secrets
+*.pem
+*.crt
+*.key
+
 # Test binary, built with `go test -c`
 *.test
 
