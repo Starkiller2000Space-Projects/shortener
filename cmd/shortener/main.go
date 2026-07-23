@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -24,8 +25,28 @@ import (
 	_ "net/http/pprof" // #nosec G108
 )
 
+// global variables that can be rewritten by flags
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
+)
+
+// orNA replaces empty string value with N/A
+// Expects original string
+// Returns original string in case it was not empty. Else N/A
+func orNA(s string) string {
+	if s == "" {
+		return "N/A"
+	}
+	return s
+}
+
 // entry point
 func main() {
+	fmt.Println("Build version:", orNA(buildVersion))
+	fmt.Println("Build date:", orNA(buildDate))
+	fmt.Println("Build commit:", orNA(buildCommit))
 	configData := config.LoadConfig()
 	err := logger.Initialize(configData.LoggerLevel)
 	if err != nil {

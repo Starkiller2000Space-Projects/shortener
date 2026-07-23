@@ -1,5 +1,4 @@
 // Package server sets up the HTTP server with routes and middleware.
-
 package server
 
 import (

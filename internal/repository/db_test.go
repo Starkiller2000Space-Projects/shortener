@@ -27,8 +27,7 @@ func setupTestDB(t interface {
 	if dsn == "" {
 		t.Skip("TEST_DATABASE_DSN not set, skipping integration test")
 	}
-	config := db.NewDBConf(dsn)
-	config.MigrationsPath = "../../migrations"
+	config := db.NewDBConf(dsn, "../../migrations")
 	storage, err := NewDBStorage(config)
 	require.NoError(t, err)
 	cleanup := func() {

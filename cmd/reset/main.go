@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/format"
@@ -10,6 +11,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/max-marek-projects/shortener/internal/logger"
@@ -17,9 +20,14 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+// resetFileName is the name of the generated file that will contain Reset method implementations.
 var resetFileName string = "reset.gen.go"
 
-// findRootDir searches for go mod file in parent directories of current directory
+// methodName is the name of the reset method generated for each marked struct.
+var methodName string = "Reset"
+
+// findRootDir searches for go mod file in parent directories starting with current directory
+// Expects current directory
 // Returns root directory and error if any
 func findRootDir(dir string) (string, error) {
 	for {
@@ -37,8 +45,8 @@ func findRootDir(dir string) (string, error) {
 }
 
 // findResetStructs searches for all structs marked with reset comment
-// Expects filename to find marked structs in
-// Returns package name, array of structs and error if any
+// Expects file ast tree to find marked structs in and types info to get actual types from
+// Returns array of ast structs with their actual types and error if any
 func findResetStructs(file *ast.File, typesInfo *types.Info) ([]*ResetStruct, error) {
 	var result []*ResetStruct
 	for _, decl := range file.Decls {
@@ -80,51 +88,63 @@ func hasGenerateReset(commentGroup *ast.CommentGroup) bool {
 }
 
 // generateResetFile generates reset file for current package
-// Expects go package name, array of found nodes for structs definitions
+// Expects go package name, map of package types info and corresponding ast structs, all types marked with reset comments
 // Returns reset file definition and error if any
-func generateResetFile(packageName string, structs map[*types.Info][]*ast.TypeSpec, allResetTypes map[types.Object]bool) (*ast.File, error) {
+func generateResetFile(pkg *packages.Package, structs []*ast.TypeSpec, allResetTypes map[types.Object]bool) (*ast.File, error) {
 	file := &ast.File{
-		Name: ast.NewIdent(packageName),
+		Name: ast.NewIdent(pkg.Name),
 	}
-
-	for typesInfo, fileStructs := range structs {
-		for _, singleStruct := range fileStructs {
-			logger.Log.Debug("generating Reset method for struct", zap.String("name", singleStruct.Name.Name))
-			fn, err := generateResetFunc(singleStruct, typesInfo, allResetTypes)
-			if err != nil {
-				return nil, err
-			}
-			file.Decls = append(file.Decls, fn)
-			logger.Log.Info("generated Reset method for struct", zap.String("name", singleStruct.Name.Name))
+	var imports = make(map[string]bool)
+	var funcDecl []ast.Decl
+	typesInfo := pkg.TypesInfo
+	for _, singleStruct := range structs {
+		logger.Log.Debug("generating Reset method for struct", zap.String("name", singleStruct.Name.Name))
+		fn, err := generateResetFunc(singleStruct, typesInfo, allResetTypes, imports, pkg)
+		if err != nil {
+			return nil, err
 		}
+		funcDecl = append(funcDecl, fn)
+		logger.Log.Info("generated Reset method for struct", zap.String("name", singleStruct.Name.Name))
 	}
+	for importItem := range imports {
+		file.Decls = append(file.Decls, &ast.GenDecl{Tok: token.IMPORT, Specs: []ast.Spec{&ast.ImportSpec{Path: &ast.BasicLit{Value: strconv.Quote(importItem)}}}})
+	}
+	file.Decls = append(file.Decls, funcDecl...)
 
 	return file, nil
 }
 
 // generateResetFunc generates reset func for found struct
-// Expects struct definition
+// Expects struct definition, types info to get actual type from, all types marked with reset comment
 // Returns Reset function declaration node
-func generateResetFunc(typeSpec *ast.TypeSpec, typesInfo *types.Info, allResetTypes map[types.Object]bool) (*ast.FuncDecl, error) {
+func generateResetFunc(typeSpec *ast.TypeSpec, typesInfo *types.Info, allResetTypes map[types.Object]bool, imports map[string]bool, currentPackage *packages.Package) (*ast.FuncDecl, error) {
 	structType := typeSpec.Type.(*ast.StructType)
 	receiverName := "r"
 	var body []ast.Stmt
 	for _, field := range structType.Fields.List {
 		t := typesInfo.TypeOf(field.Type)
 		for _, name := range field.Names {
-			currentResetStatement, err := resetStatement(receiverName, name.Name, t, false, false, allResetTypes)
+			currentResetStatement, err := resetStatement(receiverName, name.Name, t, false, false, allResetTypes, imports, currentPackage)
 			if err != nil {
 				return nil, err
 			}
 			if currentResetStatement != nil {
 				body = append(
 					body,
-					currentResetStatement,
+					currentResetStatement...,
 				)
 			}
 		}
 	}
 	return &ast.FuncDecl{
+		Doc: &ast.CommentGroup{
+			List: []*ast.Comment{
+				{
+					Slash: token.Pos(0),
+					Text:  fmt.Sprintf("\n// Reset resets all fields of %s to their zero values.", typeSpec.Name.Name),
+				},
+			},
+		},
 		Recv: &ast.FieldList{
 			List: []*ast.Field{
 				{
@@ -138,7 +158,7 @@ func generateResetFunc(typeSpec *ast.TypeSpec, typesInfo *types.Info, allResetTy
 			},
 		},
 
-		Name: ast.NewIdent("Reset"),
+		Name: ast.NewIdent(methodName),
 
 		Type: &ast.FuncType{
 			Params: &ast.FieldList{},
@@ -185,12 +205,15 @@ func assignmentStatement(receiver, field string, pointer bool, zero ast.Expr) as
 	}
 }
 
+// hasResetMethod checks whether current type had Reset method
+// Expects current type
+// Returns true / false whether current type has Reset method
 func hasResetMethod(typ types.Type) bool {
 	mset := types.NewMethodSet(typ)
 	for i := 0; i < mset.Len(); i++ {
-		meth := mset.At(i).Obj().(*types.Func)
-		if meth.Name() == "Reset" {
-			sig := meth.Type().(*types.Signature)
+		method := mset.At(i).Obj().(*types.Func)
+		if method.Name() == methodName {
+			sig := method.Type().(*types.Signature)
 			if sig.Params().Len() == 0 {
 				return true
 			}
@@ -199,9 +222,9 @@ func hasResetMethod(typ types.Type) bool {
 	ptr := types.NewPointer(typ)
 	mset = types.NewMethodSet(ptr)
 	for i := 0; i < mset.Len(); i++ {
-		meth := mset.At(i).Obj().(*types.Func)
-		if meth.Name() == "Reset" {
-			sig := meth.Type().(*types.Signature)
+		method := mset.At(i).Obj().(*types.Func)
+		if method.Name() == methodName {
+			sig := method.Type().(*types.Signature)
 			if sig.Params().Len() == 0 {
 				return true
 			}
@@ -210,27 +233,38 @@ func hasResetMethod(typ types.Type) bool {
 	return false
 }
 
+var ErrNotExportedFields = errors.New("struct contains not exported fields")
+
 // zeroValue returns zero value ast node for various field types
 // Expects receiver name, field name, field type from go/types, whether variable is a pointer or not
-func resetStatement(receiver, field string, fieldType types.Type, pointer bool, hasReset bool, allResetTypes map[types.Object]bool) (ast.Stmt, error) {
-	logger.Log.Debug("analyzing type", zap.Any("type", fieldType))
+// Returns ast node that represents reset statement for given type
+func resetStatement(
+	receiver, field string,
+	fieldType types.Type,
+	pointer bool,
+	hasReset bool,
+	allResetTypes map[types.Object]bool,
+	imports map[string]bool,
+	currentPackage *packages.Package,
+) ([]ast.Stmt, error) {
+	logger.Log.Debug("analyzing type", zap.Any("value", fieldType), zap.Any("type", reflect.TypeOf(fieldType)))
 	switch fieldType := fieldType.(type) {
 	case *types.Basic:
 		switch fieldType.Name() {
 		case "string":
-			return assignmentStatement(receiver, field, pointer, &ast.BasicLit{
+			return []ast.Stmt{assignmentStatement(receiver, field, pointer, &ast.BasicLit{
 				Kind:  token.STRING,
 				Value: `""`,
-			}), nil
+			})}, nil
 		case "bool":
-			return assignmentStatement(receiver, field, pointer, ast.NewIdent("false")), nil
+			return []ast.Stmt{assignmentStatement(receiver, field, pointer, ast.NewIdent("false"))}, nil
 		case "int", "int8", "int16", "int32", "int64",
 			"uint", "uint8", "uint16", "uint32", "uint64", "uintptr":
-			return assignmentStatement(receiver, field, pointer, &ast.BasicLit{Kind: token.INT, Value: "0"}), nil
+			return []ast.Stmt{assignmentStatement(receiver, field, pointer, &ast.BasicLit{Kind: token.INT, Value: "0"})}, nil
 		case "float32", "float64":
-			return assignmentStatement(receiver, field, pointer, &ast.BasicLit{Kind: token.FLOAT, Value: "0.0"}), nil
+			return []ast.Stmt{assignmentStatement(receiver, field, pointer, &ast.BasicLit{Kind: token.FLOAT, Value: "0.0"})}, nil
 		case "complex64", "complex128":
-			return assignmentStatement(receiver, field, pointer, &ast.BasicLit{Kind: token.IMAG, Value: "0i"}), nil
+			return []ast.Stmt{assignmentStatement(receiver, field, pointer, &ast.BasicLit{Kind: token.IMAG, Value: "0i"})}, nil
 		default:
 			return nil, fmt.Errorf("unknown basic type: %s", fieldType.Name())
 		}
@@ -243,11 +277,32 @@ func resetStatement(receiver, field string, fieldType types.Type, pointer bool, 
 		if pointer {
 			expr = &ast.StarExpr{X: expr}
 		}
-		return assignmentStatement(receiver, field, pointer, &ast.SliceExpr{
+		return []ast.Stmt{assignmentStatement(receiver, field, pointer, &ast.SliceExpr{
 			X:    expr,
 			Low:  nil,
 			High: &ast.BasicLit{Kind: token.INT, Value: "0"},
-		}), nil
+		})}, nil
+
+	case *types.Array:
+		var elemType *ast.Ident
+		switch t := fieldType.Elem().(type) {
+		case *types.Basic:
+			elemType = ast.NewIdent(t.Name())
+		case *types.Named:
+			elemType = ast.NewIdent(t.Obj().Name())
+		default:
+			return nil, fmt.Errorf("unknown element type: %v", t)
+		}
+		lenLit := &ast.BasicLit{Kind: token.INT, Value: fmt.Sprintf("%d", fieldType.Len())}
+		arrayType := &ast.ArrayType{
+			Len: lenLit,
+			Elt: elemType,
+		}
+		zeroLit := &ast.CompositeLit{
+			Type: arrayType,
+			Elts: nil,
+		}
+		return []ast.Stmt{assignmentStatement(receiver, field, pointer, zeroLit)}, nil
 
 	case *types.Map:
 		var expr ast.Expr = &ast.SelectorExpr{
@@ -257,18 +312,34 @@ func resetStatement(receiver, field string, fieldType types.Type, pointer bool, 
 		if pointer {
 			expr = &ast.StarExpr{X: expr}
 		}
-		return &ast.ExprStmt{
+		return []ast.Stmt{&ast.ExprStmt{
 			X: &ast.CallExpr{
 				Fun:  ast.NewIdent("clear"),
 				Args: []ast.Expr{expr},
 			},
-		}, nil
+		}}, nil
 
 	case *types.Named:
+		var underlyingResetStatements []ast.Stmt
+		var err error
 		if _, ok := allResetTypes[fieldType.Obj()]; ok || hasResetMethod(fieldType) {
-			return resetStatement(receiver, field, fieldType.Underlying(), pointer, true, allResetTypes)
+			underlyingResetStatements, err = resetStatement(receiver, field, fieldType.Underlying(), pointer, true, allResetTypes, imports, currentPackage)
+		} else {
+			underlyingResetStatements, err = resetStatement(receiver, field, fieldType.Underlying(), pointer, hasReset, allResetTypes, imports, currentPackage)
 		}
-		return resetStatement(receiver, field, fieldType.Underlying(), pointer, hasReset, allResetTypes)
+		if errors.Is(err, ErrNotExportedFields) {
+			logger.Log.Debug("captured not exported named type")
+			typePackage := fieldType.Obj().Pkg()
+			var fieldName string
+			if typePackage != nil && typePackage != currentPackage.Types {
+				fieldName = fmt.Sprintf("%s.%s", typePackage.Name(), fieldType.Obj().Name())
+				imports[typePackage.Path()] = true
+			} else {
+				fieldName = fieldType.Obj().Name()
+			}
+			return []ast.Stmt{assignmentStatement(receiver, field, pointer, &ast.CompositeLit{Type: ast.NewIdent(fieldName), Elts: nil})}, nil
+		}
+		return underlyingResetStatements, err
 	case *types.Pointer:
 		expr := &ast.SelectorExpr{
 			X:   ast.NewIdent(receiver),
@@ -284,13 +355,13 @@ func resetStatement(receiver, field string, fieldType types.Type, pointer bool, 
 				List: []ast.Stmt{},
 			},
 		}
-		underlyingStatement, err := resetStatement(receiver, field, fieldType.Elem(), true, hasReset, allResetTypes)
+		underlyingStatement, err := resetStatement(receiver, field, fieldType.Elem(), true, hasReset, allResetTypes, imports, currentPackage)
 		if err != nil {
 			return nil, err
 		}
 		if underlyingStatement != nil {
-			ifStatement.Body.List = append(ifStatement.Body.List, underlyingStatement)
-			return ifStatement, nil
+			ifStatement.Body.List = append(ifStatement.Body.List, underlyingStatement...)
+			return []ast.Stmt{ifStatement}, nil
 		}
 		return nil, nil
 	case *types.Struct:
@@ -299,17 +370,34 @@ func resetStatement(receiver, field string, fieldType types.Type, pointer bool, 
 			Sel: ast.NewIdent(field),
 		}
 		if hasReset || hasResetMethod(fieldType) {
-			return &ast.ExprStmt{
+			return []ast.Stmt{&ast.ExprStmt{
 				X: &ast.CallExpr{
 					Fun: &ast.SelectorExpr{
 						X:   expr,
-						Sel: ast.NewIdent("Reset"),
+						Sel: ast.NewIdent(methodName),
 					},
 				},
-			}, nil
+			}}, nil
 		}
 		if pointer {
-			return assignmentStatement(receiver, field, false, ast.NewIdent("nil")), nil
+			allFieldsExported := true
+			var childResetStatements []ast.Stmt
+			for childFieldType := range fieldType.Fields() {
+				if !childFieldType.Exported() {
+					logger.Log.Debug("found not exported field", zap.String("field", childFieldType.Name()))
+					allFieldsExported = false
+					break
+				}
+				childResetStatement, err := resetStatement(fmt.Sprintf("%s.%s", receiver, field), childFieldType.Name(), childFieldType.Type(), false, false, allResetTypes, imports, currentPackage)
+				if err != nil {
+					return nil, err
+				}
+				childResetStatements = append(childResetStatements, childResetStatement...)
+			}
+			if !allFieldsExported {
+				return nil, ErrNotExportedFields
+			}
+			return childResetStatements, nil
 		}
 		return nil, nil
 	case *types.Interface:
@@ -321,7 +409,7 @@ func resetStatement(receiver, field string, fieldType types.Type, pointer bool, 
 			return nil, fmt.Errorf("reset not implemented for interface pointers: %v", fieldType)
 		}
 		if hasReset || hasResetMethod(fieldType) {
-			return &ast.IfStmt{
+			return []ast.Stmt{&ast.IfStmt{
 				Cond: &ast.BinaryExpr{
 					X:  expr,
 					Op: token.NEQ,
@@ -332,19 +420,21 @@ func resetStatement(receiver, field string, fieldType types.Type, pointer bool, 
 						X: &ast.CallExpr{
 							Fun: &ast.SelectorExpr{
 								X:   expr,
-								Sel: ast.NewIdent("Reset"),
+								Sel: ast.NewIdent(methodName),
 							},
 						},
 					}},
 				},
-			}, nil
+			}}, nil
 		}
-		return assignmentStatement(receiver, field, false, ast.NewIdent("nil")), nil
+		return []ast.Stmt{assignmentStatement(receiver, field, false, ast.NewIdent("nil"))}, nil
 	default:
 		return nil, fmt.Errorf("unknown type: %v", fieldType)
 	}
 }
 
+// ResetStruct pairs the AST type specification with its types.Object information.
+// It is used to collect structs that are marked with the "// generate:reset" comment.
 type ResetStruct struct {
 	Obj  types.Object
 	Type *ast.TypeSpec
@@ -372,9 +462,9 @@ func makeResets() error {
 		return err
 	}
 	var resetTypes = make(map[types.Object]bool)
-	var packageResetStructs = make(map[*packages.Package]map[*types.Info][]*ast.TypeSpec)
+	var packageResetStructs = make(map[*packages.Package][]*ast.TypeSpec)
 	for _, pkg := range pkgs {
-		var resetStructs = make(map[*types.Info][]*ast.TypeSpec)
+		var resetStructs []*ast.TypeSpec
 		for _, file := range pkg.Syntax {
 			fileResetStructs, err := findResetStructs(file, pkg.TypesInfo)
 			if err != nil {
@@ -384,7 +474,7 @@ func makeResets() error {
 				continue
 			}
 			for _, fileResetStruct := range fileResetStructs {
-				resetStructs[pkg.TypesInfo] = append(resetStructs[pkg.TypesInfo], fileResetStruct.Type)
+				resetStructs = append(resetStructs, fileResetStruct.Type)
 				resetTypes[fileResetStruct.Obj] = true
 			}
 		}
@@ -394,7 +484,7 @@ func makeResets() error {
 		packageResetStructs[pkg] = resetStructs
 	}
 	for pkg, resetStructs := range packageResetStructs {
-		fileData, err := generateResetFile(pkg.Name, resetStructs, resetTypes)
+		fileData, err := generateResetFile(pkg, resetStructs, resetTypes)
 		if err != nil {
 			return err
 		}
@@ -409,7 +499,11 @@ func makeResets() error {
 // writeGenerated writes generated ast Nodes to desired location
 func writeGenerated(filename string, f *ast.File) error {
 	var buf bytes.Buffer
-	err := format.Node(
+	_, err := buf.WriteString("// Code generated by reset generator. DO NOT EDIT.\n\n")
+	if err != nil {
+		return err
+	}
+	err = format.Node(
 		&buf,
 		token.NewFileSet(),
 		f,

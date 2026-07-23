@@ -122,7 +122,7 @@ type ResetableStruct struct {
 		}
 	}
 	require.NotNil(t, typeSpec)
-	fn, err := generateResetFunc(typeSpec, info, map[types.Object]bool{info.Defs[typeSpec.Name]: true})
+	fn, err := generateResetFunc(typeSpec, info, map[types.Object]bool{info.Defs[typeSpec.Name]: true}, map[string]bool{}, nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, "Reset", fn.Name.Name)

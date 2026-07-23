@@ -1,5 +1,4 @@
 // Package repository defines storage interfaces and implementations (memory, file, DB).
-
 package repository
 
 import (
@@ -110,7 +109,10 @@ func (dbs *dbStorage) AddBatch(ctx context.Context, items []Row) error {
 	if len(items) == 0 {
 		return nil
 	}
-	query, args := dbs.buildBatchInsertQuery(items)
+	query, args, err := dbs.buildBatchInsertQuery(items)
+	if err != nil {
+		return fmt.Errorf("failed to add data as batch: %w", err)
+	}
 	if _, err := dbs.storage.ExecContext(ctx, query, args...); err != nil {
 		return fmt.Errorf("failed to add data as batch: %w", err)
 	}
@@ -119,7 +121,7 @@ func (dbs *dbStorage) AddBatch(ctx context.Context, items []Row) error {
 
 // buildBatchInsertQuery constructs a SQL INSERT query for multiple rows.
 // Returns the query string and the argument slice.
-func (dbs *dbStorage) buildBatchInsertQuery(items []Row) (string, []any) {
+func (dbs *dbStorage) buildBatchInsertQuery(items []Row) (string, []any, error) {
 	var b strings.Builder
 	b.WriteString(`INSERT INTO urls(id, original_url, user_id, is_deleted) VALUES `)
 
@@ -128,11 +130,14 @@ func (dbs *dbStorage) buildBatchInsertQuery(items []Row) (string, []any) {
 		if i > 0 {
 			b.WriteString(", ")
 		}
-		b.WriteString(fmt.Sprintf("($%d, $%d, $%d, false)", i*3+1, i*3+2, i*3+3))
+		_, err := fmt.Fprintf(&b, "($%d, $%d, $%d, false)", i*3+1, i*3+2, i*3+3)
+		if err != nil {
+			return "", nil, err
+		}
 		args = append(args, item.ID, item.OriginalURL, item.UserID)
 	}
 
-	return b.String(), args
+	return b.String(), args, nil
 }
 
 func (dbs *dbStorage) GetUserURLs(ctx context.Context, userID string) ([]UserURL, error) {

@@ -1,5 +1,4 @@
 // Package middlewares provides HTTP middleware for logging, auth, gzip, and audit.
-
 package middlewares
 
 import (

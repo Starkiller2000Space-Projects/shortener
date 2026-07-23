@@ -1,5 +1,4 @@
 // Package repository defines storage interfaces and implementations (memory, file, DB).
-
 package repository
 
 import (
@@ -14,7 +13,7 @@ import (
 // Storage defines the interface for URL storage backends.
 // Implementations must be safe for concurrent use.
 //
-//go:generate mockery --name=Storage --output=../service  --outpkg=service --filename=mock_storage_test.gen.go --with-expecter --structname=MockStorage
+//go:generate mockery --name=Storage --output=../service  --outpkg=service --filename=mock_storage.gen._test.go --with-expecter --structname=MockStorage
 type Storage interface {
 	Add(ctx context.Context, info Row) error
 	Get(ctx context.Context, id string) (string, error)
@@ -37,7 +36,7 @@ func GetStorage(cfg *config.Config) (Storage, error) {
 	switch {
 	case cfg.DatabaseURL != "":
 		logger.Log.Info("Initializing database storage")
-		storage, err = NewDBStorage(db.NewDBConf(cfg.DatabaseURL))
+		storage, err = NewDBStorage(db.NewDBConf(cfg.DatabaseURL, cfg.MigrationsPath))
 	case cfg.FileStoragePath != "":
 		logger.Log.Info("Initializing file storage")
 		storage, err = NewFileStorage(cfg.FileStoragePath)

@@ -1,5 +1,4 @@
 // Package middlewares provides HTTP middleware for logging, auth, gzip, and audit.
-
 package middlewares
 
 import (
@@ -125,10 +124,10 @@ func (c *compressReader) Close() error {
 }
 
 // compressWriterPool reuses compressWriter objects to reduce allocations.
-var compressWriterPool = pool.NewPool[*compressWriter]()
+var compressWriterPool = pool.NewPool(func() *compressWriter { return &compressWriter{} })
 
 // compressReaderPool reuses compressReader objects to reduce allocations.
-var compressReaderPool = pool.NewPool[*compressReader]()
+var compressReaderPool = pool.NewPool(func() *compressReader { return &compressReader{} })
 
 // GzipMiddleware returns a middleware that handles gzip compression for responses
 // and decompresses gzip-encoded request bodies.

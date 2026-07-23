@@ -1,5 +1,4 @@
 // Package utils provides helper functions for ID generation and user IDs.
-
 package utils
 
 import (

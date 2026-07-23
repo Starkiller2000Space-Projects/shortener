@@ -1,5 +1,4 @@
 // Package exitcheck implements analyzer that forbids os.Exit call in main function.
-
 package exitcheck
 
 import (

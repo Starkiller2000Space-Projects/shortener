@@ -1,5 +1,4 @@
 // Package audit implements an audit logging system with multiple observers.
-
 package audit
 
 import (
@@ -14,7 +13,7 @@ import (
 // Observer is implemented by types that want to receive audit events.
 // The Notify method is called for each event.
 //
-//go:generate mockery --name=Observer --inpackage --filename=mock_observer_test.gen.go --with-expecter
+//go:generate mockery --name=Observer --inpackage --filename=mock_observer.gen._test.go --with-expecter
 type Observer interface {
 	Notify(event models.AuditEvent)
 	Stop() error
@@ -23,7 +22,8 @@ type Observer interface {
 // Audit defines the interface for broadcasting audit events.
 // It allows registering observers and notifying them when an event occurs.
 //
-//go:generate mockery --name=Audit --output=../middlewares --outpkg=middlewares --filename=mock_audit_test.gen.go --with-expecter --structname=MockAudit
+//go:generate mockery --name=Audit --output=../middlewares --outpkg=middlewares --filename=mock_audit.gen._test.go --with-expecter --structname=MockAudit
+//go:generate mockery --name=Audit --output=../server --outpkg=server --filename=mock_audit.gen._test.go --with-expecter --structname=MockAudit
 type Audit interface {
 	Register(o Observer)
 	NotifyAll(event models.AuditEvent) *sync.WaitGroup

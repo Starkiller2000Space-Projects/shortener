@@ -1,4 +1,4 @@
-// models package defines data structures used across the application.
+// Package models defines data structures used across the application.
 package models
 
 // AuditAction represents the type of audit event.
@@ -9,8 +9,6 @@ const (
 	AuditShorten AuditAction = "shorten"
 )
 
-// generate:reset
-//
 // AuditData is stored in the request context to accumulate audit information.
 type AuditData struct {
 	Action AuditAction
@@ -18,8 +16,6 @@ type AuditData struct {
 	UserID string
 }
 
-// generate:reset
-//
 // AuditEvent represents an audit log entry.
 type AuditEvent struct {
 	Timestamp int64       `json:"ts"`

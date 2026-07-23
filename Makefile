@@ -5,7 +5,7 @@ lint:
 	goimports -w .
 
 
-staticlint:
+static-lint:
 	go run ./cmd/staticlint/main.go ./...
 
 test:
@@ -19,8 +19,16 @@ doc:
 run-client:
 	go run ./cmd/client/main.go
 
+
+VERSION := $(shell git describe --tags --always 2>/dev/null || echo "")
+DATE    := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+COMMIT  := $(shell git rev-parse HEAD 2>/dev/null || echo "")
+
 run:
-	go build -o bin/shortener ./cmd/shortener
+	go build -ldflags "-X main.buildVersion=$(VERSION) \
+                   -X main.buildDate=$(DATE) \
+                   -X main.buildCommit=$(COMMIT)" \
+                   -o bin/shortener ./cmd/shortener
 	./bin/shortener
 
 mocks:

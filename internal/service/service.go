@@ -1,5 +1,4 @@
 // Package service implements the core URL shortening business logic.
-
 package service
 
 import (
@@ -18,7 +17,8 @@ import (
 
 // Service defines the business logic interface for URL shortening.
 //
-//go:generate mockery --name=Service --output=../handlers --outpkg=handlers --filename=mock_service_test.gen.go --with-expecter --structname=MockService
+//go:generate mockery --name=Service --output=../handlers --outpkg=handlers --filename=mock_service.gen._test.go --with-expecter --structname=MockService
+//go:generate mockery --name=Service --output=../server --outpkg=server --filename=mock_service.gen._test.go --with-expecter --structname=MockService
 type Service interface {
 	CreateShortURL(ctx context.Context, original, scheme, host string) (string, error)
 	GetOriginalURL(ctx context.Context, short string) (string, error)

@@ -1,5 +1,4 @@
 // Package requests provides helpers for parsing HTTP headers and context values.
-
 package requests
 
 import (
