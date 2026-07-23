@@ -78,7 +78,7 @@ func main() {
 	// create separate goroutine
 	serverErr := make(chan error, 1)
 	go func() {
-		if configData.EnableHttps {
+		if configData.EnableHTTPS {
 			serverErr <- srv.ListenAndServeTLS("server.pem", "server.key")
 		} else {
 			serverErr <- srv.ListenAndServe()

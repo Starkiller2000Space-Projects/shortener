@@ -28,7 +28,7 @@ type Config struct {
 	AuditFile          string        `env:"AUDIT_FILE"`           // path to audit file
 	AuditURL           string        `env:"AUDIT_URL"`            // audit service url
 	MigrationsPath     string        `env:"MIGRATIONS"`           // path to migrations
-	EnableHttps        bool          `env:"ENABLE_HTTPS"`         // enable https protocol
+	EnableHTTPS        bool          `env:"ENABLE_HTTPS"`         // enable https protocol
 
 }
 
@@ -59,7 +59,7 @@ func LoadConfig() *Config {
 	flag.StringVar(&config.AuditFile, "audit-file", "", "path to audit file")
 	flag.StringVar(&config.AuditURL, "audit-url", "", "audit service url")
 	flag.StringVar(&config.MigrationsPath, "migrations", "./migrations", "path to database migrations")
-	flag.BoolVar(&config.EnableHttps, "s", false, "enable https protocol")
+	flag.BoolVar(&config.EnableHTTPS, "s", false, "enable https protocol")
 	flag.StringVar(&config.RunAddr, "a", ":8080", "address and port to run server")
 	// read flags to temp vars
 	var readSec, writeSec int
@@ -73,7 +73,7 @@ func LoadConfig() *Config {
 	if err := env.Parse(&config); err != nil {
 		log.Printf("warning: failed to parse env: %v", err)
 	}
-	if config.EnableHttps && config.RunAddr == ":8080" {
+	if config.EnableHTTPS && config.RunAddr == ":8080" {
 		config.RunAddr = ":443"
 	}
 	return &config

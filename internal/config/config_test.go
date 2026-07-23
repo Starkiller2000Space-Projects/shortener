@@ -29,12 +29,13 @@ func TestLoadConfig_Flags(t *testing.T) {
 		"-l=ERROR",
 		"-f=./storage_flag.json",
 		"-d=postgres://flag:pass@localhost:5432/shortener?sslmode=disable",
-		"-s=flag_secret",
+		"-c=flag_secret",
 		"-max-parallel-workers=374",
 		"-audit-file=./audit_flag.log",
 		"-audit-url=https://audit-flag.com",
 		"-r=1",
 		"-w=2",
+		"-s=true",
 	}
 
 	cfg := LoadConfig()
@@ -52,6 +53,7 @@ func TestLoadConfig_Flags(t *testing.T) {
 		AuditURL:           "https://audit-flag.com",
 		ReadTimeout:        1 * time.Second,
 		WriteTimeout:       2 * time.Second,
+		EnableHTTPS:        true,
 	}
 
 	for expectedValue, actualValue := range map[any]any{
@@ -94,6 +96,7 @@ func TestLoadConfig_Env(t *testing.T) {
 			"AUDIT_URL",
 			"READ_TIMEOUT",
 			"WRITE_TIMEOUT",
+			"ENABLE_HTTPS",
 		} {
 			os.Unsetenv(envVar)
 		}
@@ -115,6 +118,7 @@ func TestLoadConfig_Env(t *testing.T) {
 		"AUDIT_URL":            "https://audit-env.com",
 		"READ_TIMEOUT":         "5s",
 		"WRITE_TIMEOUT":        "10s",
+		"ENABLE_HTTPS":         "true",
 	} {
 		err := os.Setenv(envName, envVal)
 		require.NoError(t, err)
