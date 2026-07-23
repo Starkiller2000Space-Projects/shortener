@@ -47,3 +47,6 @@ pprof-watch-%:
 
 pprof-compare:
 	go tool pprof -top -diff_base=profiles/base.pprof -alloc_space profiles/result.pprof
+
+resets:
+	go run ./cmd/reset/main.go
