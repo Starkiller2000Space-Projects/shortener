@@ -46,17 +46,6 @@ import (
 )
 
 func main() {
-	// parse flags
-	// var includeStaticCheckRaw, excludeStaticCheckRaw string
-	// flag.StringVar(&includeStaticCheckRaw, "staticcheck-include", "",
-	// 	"список анализаторов staticcheck для включения (через запятую), например: S1000,ST1000")
-	// flag.StringVar(&excludeStaticCheckRaw, "staticcheck-exclude", "",
-	// 	"список анализаторов staticcheck для исключения (через запятую)")
-	// flag.Parse()
-
-	// includeStaticCheck := parseList(includeStaticCheckRaw)
-	// excludeStaticCheck := parseList(excludeStaticCheckRaw)
-
 	// standard array obtained from https://go.googlesource.com/tools/+/28ff1811c64c77737ccead3a5fc3b8bcb9dfaef4/go/analysis/suite/vet/vet.go
 	var allAnalyzers = []*analysis.Analyzer{
 		appends.Analyzer,

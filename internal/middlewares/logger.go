@@ -49,6 +49,8 @@ func LoggerMiddleware(h http.Handler) http.Handler {
 }
 
 type (
+	// generate:reset
+	//
 	// responseData stores the status code and response size for logging purposes.
 	responseData struct {
 		status int

@@ -9,13 +9,15 @@ import (
 	"mime"
 	"net/http"
 	"slices"
-	"sync"
 
 	"github.com/max-marek-projects/shortener/internal/logger"
+	"github.com/max-marek-projects/shortener/internal/pool"
 	"github.com/max-marek-projects/shortener/internal/requests"
 	"go.uber.org/zap"
 )
 
+// generate:reset
+//
 // compressWriter is a wrapper around http.ResponseWriter that compresses
 // response data using gzip if the content type is JSON or HTML.
 type compressWriter struct {
@@ -28,11 +30,8 @@ type compressWriter struct {
 // newCompressWriter creates a new compressWriter (without gzip writer yet).
 // The writer is created on demand when WriteHeader is called.
 func newCompressWriter(w http.ResponseWriter) *compressWriter {
-	cw := compressWriterPool.Get().(*compressWriter)
+	cw := compressWriterPool.Get()
 	cw.w = w
-	cw.compressed = false
-	cw.wroteHeader = false
-	cw.zw = nil
 	return cw
 }
 
@@ -83,6 +82,8 @@ func (c *compressWriter) Close() error {
 	return nil
 }
 
+// generate:reset
+//
 // compressReader wraps an io.ReadCloser and decompresses gzip-encoded data.
 type compressReader struct {
 	r  io.ReadCloser
@@ -96,7 +97,7 @@ func newCompressReader(r io.ReadCloser) (*compressReader, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create reader: %w", err)
 	}
-	cr := compressReaderPool.Get().(*compressReader)
+	cr := compressReaderPool.Get()
 	cr.r = r
 	cr.zr = zr
 	return cr, nil
@@ -124,18 +125,10 @@ func (c *compressReader) Close() error {
 }
 
 // compressWriterPool reuses compressWriter objects to reduce allocations.
-var compressWriterPool = sync.Pool{
-	New: func() any {
-		return &compressWriter{}
-	},
-}
+var compressWriterPool = pool.NewPool[*compressWriter]()
 
 // compressReaderPool reuses compressReader objects to reduce allocations.
-var compressReaderPool = sync.Pool{
-	New: func() any {
-		return &compressReader{}
-	},
-}
+var compressReaderPool = pool.NewPool[*compressReader]()
 
 // GzipMiddleware returns a middleware that handles gzip compression for responses
 // and decompresses gzip-encoded request bodies.
