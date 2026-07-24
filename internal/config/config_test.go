@@ -69,6 +69,7 @@ func TestLoadConfig_Flags(t *testing.T) {
 		expected.AuditURL:           cfg.AuditURL,
 		expected.ReadTimeout:        cfg.ReadTimeout,
 		expected.WriteTimeout:       cfg.WriteTimeout,
+		expected.EnableHTTPS:        cfg.EnableHTTPS,
 	} {
 		assert.Equal(t, expectedValue, actualValue)
 	}
@@ -140,6 +141,7 @@ func TestLoadConfig_Env(t *testing.T) {
 		AuditURL:           "https://audit-env.com",
 		ReadTimeout:        5 * time.Second,
 		WriteTimeout:       10 * time.Second,
+		EnableHTTPS:        true,
 	}
 
 	for expectedValue, actualValue := range map[any]any{
@@ -155,6 +157,7 @@ func TestLoadConfig_Env(t *testing.T) {
 		expected.AuditURL:           cfg.AuditURL,
 		expected.ReadTimeout:        cfg.ReadTimeout,
 		expected.WriteTimeout:       cfg.WriteTimeout,
+		expected.EnableHTTPS:        cfg.EnableHTTPS,
 	} {
 		assert.Equal(t, expectedValue, actualValue)
 	}
