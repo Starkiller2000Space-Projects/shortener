@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/max-marek-projects/shortener/internal/audit"
@@ -158,7 +159,7 @@ func BenchmarkShortenJSONHandler(b *testing.B) {
 		CreateShortURL(mock.Anything, "https://example.com", mock.Anything, mock.Anything).
 		Return("http://localhost/abc123", nil)
 
-	handler := NewHandler(mockSvc, 10)
+	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{})
 	reqData := models.ShortenRequest{URL: "https://example.com"}
 	jsonBody, _ := json.Marshal(reqData)
 	req := httptest.NewRequest(http.MethodPost, "/api/shorten", io.NopCloser(bytes.NewReader(jsonBody)))
@@ -308,7 +309,7 @@ func BenchmarkPostBatchShortenHandler(b *testing.B) {
 		CreateShortURLsBatch(mock.Anything, reqBatch, mock.Anything, mock.Anything).
 		Return(respBatch, nil)
 
-	handler := NewHandler(mockSvc, 10)
+	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{})
 	jsonBody, _ := json.Marshal(reqBatch)
 	req := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", io.NopCloser(bytes.NewReader(jsonBody)))
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
@@ -427,7 +428,7 @@ func BenchmarkGetUserURLsHandler(b *testing.B) {
 		GetUserURLs(mock.Anything, mock.Anything, mock.Anything).
 		Return(userURLs, nil)
 
-	handler := NewHandler(mockSvc, 10)
+	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{})
 	req := httptest.NewRequest(http.MethodGet, "/api/user/urls", nil)
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
 	w := httptest.NewRecorder()
@@ -540,7 +541,7 @@ func BenchmarkDeleteUserURLsHandler(b *testing.B) {
 	mockSvc := NewMockService(b)
 	mockSvc.On("DeleteUserURLs", mock.Anything, "user123", []string{"abc1", "abc2"}).Return(nil).Maybe()
 
-	handler := NewHandler(mockSvc, 10)
+	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{})
 	shortIDs := []string{"abc1", "abc2"}
 	jsonBody, _ := json.Marshal(shortIDs)
 	req := httptest.NewRequest(http.MethodDelete, "/api/user/urls", io.NopCloser(bytes.NewReader(jsonBody)))

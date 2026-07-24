@@ -149,7 +149,9 @@ func (h *Handler) DeleteUserURLsHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	var sem = make(chan struct{}, h.maxParallelWorkers)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	h.WaitGroup.Add(1)
 	go func() {
+		defer h.WaitGroup.Done()
 		defer cancel()
 		sem <- struct{}{}
 		defer func() { <-sem }()

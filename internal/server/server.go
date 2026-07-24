@@ -2,7 +2,9 @@
 package server
 
 import (
+	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -17,6 +19,7 @@ import (
 // Server wraps an http.Server with pre-configured middleware and routes.
 type Server struct {
 	http.Server
+	waitGroup *sync.WaitGroup
 }
 
 // NewServer creates a new Server instance with the given address, handler, timeouts, auditor, and cookie secret.
@@ -56,6 +59,7 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 			ReadTimeout:  readTimeout,
 			WriteTimeout: writeTimeout,
 		},
+		waitGroup: h.WaitGroup,
 	}
 }
 
@@ -64,4 +68,23 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 func (s *Server) ListenAndServe() error {
 	logger.Log.Info("Starting server", zap.String("address", s.Addr))
 	return s.Server.ListenAndServe()
+}
+
+// Shutdown stops the HTTP server.
+// Expects context.
+// Returns an error if the server wasn't closed properly.
+func (s *Server) Shutdown(ctx context.Context) error {
+	done := make(chan struct{})
+	go func() {
+		s.waitGroup.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		logger.Log.Info("All background tasks completed")
+	case <-time.After(5 * time.Second):
+		logger.Log.Warn("Background tasks did not finish in time")
+	}
+	return s.Server.Shutdown(ctx)
 }

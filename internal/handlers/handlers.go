@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"sync"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/max-marek-projects/shortener/internal/audit"
@@ -19,11 +20,12 @@ import (
 type Handler struct {
 	service            service.Service
 	maxParallelWorkers int
+	WaitGroup          *sync.WaitGroup
 }
 
 // NewHandler creates a new Handler with the given service and max parallel workers.
-func NewHandler(service service.Service, maxParallelWorkers int) *Handler {
-	return &Handler{service: service, maxParallelWorkers: maxParallelWorkers}
+func NewHandler(service service.Service, maxParallelWorkers int, wg *sync.WaitGroup) *Handler {
+	return &Handler{service: service, maxParallelWorkers: maxParallelWorkers, WaitGroup: wg}
 }
 
 // IDHandler handles GET /{id} – redirects to the original URL.

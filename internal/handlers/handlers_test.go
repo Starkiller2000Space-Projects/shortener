@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -25,7 +26,7 @@ import (
 
 // create new router for handlers testing
 func newTestRouter(service *MockService, withAudit, withAuth bool) http.Handler {
-	h := NewHandler(service, 100)
+	h := NewHandler(service, 100, &sync.WaitGroup{})
 
 	r := chi.NewRouter()
 	if withAudit {
@@ -206,7 +207,7 @@ func BenchmarkIDHandler(b *testing.B) {
 	mockSvc := NewMockService(b)
 	mockSvc.On("GetOriginalURL", mock.Anything, "abc123").Return("https://example.com", nil)
 
-	handler := NewHandler(mockSvc, 10)
+	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{})
 	req := httptest.NewRequest(http.MethodGet, "/abc123", nil)
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
 	req = req.WithContext(audit.SetAuditDataToContext(context.WithValue(req.Context(), chi.RouteCtxKey, chi.NewRouteContext()), &models.AuditData{}))
@@ -373,7 +374,7 @@ func BenchmarkPostURLHandler(b *testing.B) {
 	mockSvc.EXPECT().CreateShortURL(mock.Anything, "https://example.com", mock.Anything, mock.Anything).
 		Return("http://localhost/abc123", nil)
 
-	handler := NewHandler(mockSvc, 10)
+	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{})
 	body := []byte("https://example.com")
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 	req = req.WithContext(audit.SetAuditDataToContext(requests.SetUserIDToContext(req.Context(), "user123"), &models.AuditData{}))
@@ -389,7 +390,7 @@ func BenchmarkPostURLHandler(b *testing.B) {
 func TestPingHandler(t *testing.T) {
 	mockService := NewMockService(t)
 	mockService.EXPECT().Ping(mock.Anything).Return(nil)
-	handler := NewHandler(mockService, 100)
+	handler := NewHandler(mockService, 100, &sync.WaitGroup{})
 
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
 	w := httptest.NewRecorder()
@@ -460,7 +461,7 @@ func BenchmarkPingHandler(b *testing.B) {
 	mockSvc := NewMockService(b)
 	mockSvc.On("Ping", mock.Anything).Return(nil)
 
-	handler := NewHandler(mockSvc, 10)
+	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{})
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
 	w := httptest.NewRecorder()
