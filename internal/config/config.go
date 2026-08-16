@@ -28,6 +28,8 @@ type Config struct {
 	AuditFile          string        `env:"AUDIT_FILE"`           // path to audit file
 	AuditURL           string        `env:"AUDIT_URL"`            // audit service url
 	MigrationsPath     string        `env:"MIGRATIONS"`           // path to migrations
+	EnableHTTPS        bool          `env:"ENABLE_HTTPS"`         // enable https protocol
+
 }
 
 // LoadConfig parses configuration from .env file, environment variables,
@@ -47,17 +49,18 @@ func LoadConfig() *Config {
 		}
 	}
 	// read flags directly to config
-	flag.StringVar(&config.RunAddr, "a", ":8080", "address and port to run server")
 	flag.StringVar(&config.ShowAddr, "b", "", "address and port to show for short urls")
 	flag.IntVar(&config.IDSize, "i", 8, "address and port to show for short urls")
 	flag.StringVar(&config.LoggerLevel, "l", "INFO", "logger level")
 	flag.StringVar(&config.FileStoragePath, "f", "", "file path to save shortened urls to")
 	flag.StringVar(&config.DatabaseURL, "d", "", "database connection url")
-	flag.StringVar(&config.CookieSecret, "s", "", "cookie signing secret")
+	flag.StringVar(&config.CookieSecret, "c", "", "cookie signing secret")
 	flag.IntVar(&config.MaxParallelWorkers, "max-parallel-workers", 100, "maximum concurrent parallel operations")
 	flag.StringVar(&config.AuditFile, "audit-file", "", "path to audit file")
 	flag.StringVar(&config.AuditURL, "audit-url", "", "audit service url")
 	flag.StringVar(&config.MigrationsPath, "migrations", "./migrations", "path to database migrations")
+	flag.BoolVar(&config.EnableHTTPS, "s", false, "enable https protocol")
+	flag.StringVar(&config.RunAddr, "a", ":8080", "address and port to run server")
 	// read flags to temp vars
 	var readSec, writeSec int
 	flag.IntVar(&readSec, "r", 30, "server read timeout in seconds")
@@ -69,6 +72,9 @@ func LoadConfig() *Config {
 	config.WriteTimeout = time.Duration(writeSec) * time.Second
 	if err := env.Parse(&config); err != nil {
 		log.Printf("warning: failed to parse env: %v", err)
+	}
+	if config.EnableHTTPS && config.RunAddr == ":8080" {
+		config.RunAddr = ":443"
 	}
 	return &config
 }
