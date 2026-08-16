@@ -124,7 +124,9 @@ func (h *Handler) ListUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(urls); err != nil {
-		logger.Log.Error("failed to encode response", zap.Error(err))
+		logger.Log.Error("Failed to encode response", zap.Error(err))
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -202,5 +204,10 @@ func (h *Handler) StatsHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(statistics)
+	err = json.NewEncoder(w).Encode(statistics)
+	if err != nil {
+		logger.Log.Error("Failed to encode response", zap.Error(err))
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }

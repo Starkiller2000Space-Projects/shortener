@@ -28,7 +28,7 @@ func NewGRPCHandler(service service.GRPCService) *GRPCHandler {
 	return &GRPCHandler{service: service}
 }
 
-// ShortenURLHandler creates a short URL from the bytes body.
+// ShortenURL creates a short URL from the bytes body.
 // The body should contain the original URL.
 // On success, returns the short URL in body.
 func (h *GRPCHandler) ShortenURL(
@@ -48,6 +48,16 @@ func (h *GRPCHandler) ShortenURL(
 			"Empty body",
 		)
 	}
+	auditData, ok := audit.GetAuditDataFromContext(ctx)
+	if !ok {
+		logger.Log.Error("No audit data in context")
+		return nil, status.Error(
+			codes.Internal,
+			"No audit data",
+		)
+	}
+	auditData.Action = models.AuditShorten
+	auditData.URL = originalURL
 	result, err := h.service.CreateShortURL(ctx, originalURL, "", "") // unable to get scheme or host with grpc
 	if err != nil {
 		if errors.Is(err, service.ErrDuplicate) {
@@ -62,9 +72,10 @@ func (h *GRPCHandler) ShortenURL(
 				err.Error(),
 			)
 		}
+		logger.Log.Error("Failed create short URL", zap.Error(err))
 		return nil, status.Error(
 			codes.Internal,
-			err.Error(),
+			"Internal error",
 		)
 	}
 	return &api.URLShortenResponse{
@@ -103,7 +114,7 @@ func (h *GRPCHandler) ExpandURL(
 	return &api.URLExpandResponse{Result: originalURL}, nil
 }
 
-// ListUserURLsHandler returns all URLs created by the authenticated user.
+// ListUserURLs returns all URLs created by the authenticated user.
 func (h *GRPCHandler) ListUserURLs(
 	ctx context.Context,
 	_ *emptypb.Empty,

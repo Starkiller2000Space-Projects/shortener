@@ -16,14 +16,14 @@ import (
 	"google.golang.org/grpc"
 )
 
-// Server wraps an http.Server with pre-configured middleware and routes.
+// GRPCServer wraps an http.Server with pre-configured middleware and routes.
 type GRPCServer struct {
 	*grpc.Server
 	Addr              string
 	WaitForBackground func()
 }
 
-// NewServer creates a new Server instance with the given address, handler, timeouts, auditor, and cookie secret.
+// NewGRPCServer creates a new Server instance with the given address, handler, timeouts, auditor, and cookie secret.
 // It sets up chi router with all necessary middleware and routes:
 // - Recoverer, Gzip, Logger, Audit middleware for all routes.
 // - Public routes: /ping, /{id}
@@ -57,7 +57,7 @@ func (s *GRPCServer) ListenAndServe() error {
 	if err != nil {
 		return fmt.Errorf("create grpc listener: %w", err)
 	}
-	if err := s.Server.Serve(listener); err != nil {
+	if err := s.Serve(listener); err != nil {
 		logger.Log.Error(
 			"grpc server stopped",
 			zap.Error(err),
@@ -71,7 +71,7 @@ func (s *GRPCServer) ListenAndServe() error {
 // Expects context.
 // Returns an error if the server wasn't closed properly.
 func (s *GRPCServer) Shutdown(ctx context.Context) error {
-	s.Server.GracefulStop()
+	s.GracefulStop()
 	s.WaitForBackground()
 	return nil
 }

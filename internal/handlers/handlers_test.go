@@ -97,7 +97,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path, body string, o
 }
 
 // test getting url by its id
-func TestIDHandler(t *testing.T) {
+func TestExpandURLHandler(t *testing.T) {
 	fixedID := "test1234"
 	existingURL := "https://example.com/"
 
@@ -203,9 +203,9 @@ func TestIDHandler(t *testing.T) {
 	}
 }
 
-func BenchmarkIDHandler(b *testing.B) {
+func BenchmarkExpandURLHandler(b *testing.B) {
 	mockSvc := NewMockService(b)
-	mockSvc.On("GetOriginalURL", mock.Anything, "abc123").Return("https://example.com", nil)
+	mockSvc.EXPECT().GetOriginalURL(mock.Anything, "abc123").Return("https://example.com", nil)
 
 	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{}, "")
 	req := httptest.NewRequest(http.MethodGet, "/abc123", nil)
@@ -222,7 +222,7 @@ func BenchmarkIDHandler(b *testing.B) {
 }
 
 // test adding url to storage
-func TestPostURLHandler(t *testing.T) {
+func TestShortenURLHandler(t *testing.T) {
 	fixedID := "test1234"
 
 	type want struct {
@@ -459,7 +459,7 @@ func TestPingHandler(t *testing.T) {
 
 func BenchmarkPingHandler(b *testing.B) {
 	mockSvc := NewMockService(b)
-	mockSvc.On("Ping", mock.Anything).Return(nil)
+	mockSvc.EXPECT().Ping(mock.Anything).Return(nil)
 
 	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{}, "")
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)

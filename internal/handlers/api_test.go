@@ -322,7 +322,7 @@ func BenchmarkPostBatchShortenHandler(b *testing.B) {
 	}
 }
 
-func TestGetUserURLsHandler(t *testing.T) {
+func TestListUserURLsHandler(t *testing.T) {
 	type want struct {
 		code        int
 		contentType string
@@ -539,7 +539,7 @@ func TestDeleteUserURLsHandler(t *testing.T) {
 
 func BenchmarkDeleteUserURLsHandler(b *testing.B) {
 	mockSvc := NewMockService(b)
-	mockSvc.On("DeleteUserURLs", mock.Anything, "user123", []string{"abc1", "abc2"}).Return(nil).Maybe()
+	mockSvc.EXPECT().DeleteUserURLs(mock.Anything, "user123", []string{"abc1", "abc2"}).Return(nil).Maybe()
 
 	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{}, "")
 	shortIDs := []string{"abc1", "abc2"}
@@ -624,7 +624,7 @@ func TestStatsHandler(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := NewMockService(t)
 			if tt.mockError != nil || tt.mockStats != (models.Statistics{}) {
-				mockService.On("GetStats", mock.Anything).Return(tt.mockStats, tt.mockError)
+				mockService.EXPECT().GetStats(mock.Anything).Return(tt.mockStats, tt.mockError)
 			}
 			h := NewHandler(mockService, 5, &sync.WaitGroup{}, tt.trustedSubnet)
 			req := httptest.NewRequest(http.MethodGet, "/api/internal/stats", nil)
