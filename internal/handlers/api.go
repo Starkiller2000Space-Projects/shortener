@@ -149,14 +149,14 @@ func (h *Handler) DeleteUserURLsHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	var sem = make(chan struct{}, h.maxParallelWorkers)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	go func() {
+	h.waitGroup.Go(func() {
 		defer cancel()
 		sem <- struct{}{}
 		defer func() { <-sem }()
 		if err := h.service.DeleteUserURLs(ctx, userID, shortIDs); err != nil {
 			logger.Log.Error("Failed to delete user URLs", zap.Error(err))
 		}
-	}()
+	})
 
 	w.WriteHeader(http.StatusAccepted)
 }

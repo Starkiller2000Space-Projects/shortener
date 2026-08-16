@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"sync"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/max-marek-projects/shortener/internal/audit"
@@ -19,11 +21,27 @@ import (
 type Handler struct {
 	service            service.Service
 	maxParallelWorkers int
+	waitGroup          *sync.WaitGroup
 }
 
 // NewHandler creates a new Handler with the given service and max parallel workers.
-func NewHandler(service service.Service, maxParallelWorkers int) *Handler {
-	return &Handler{service: service, maxParallelWorkers: maxParallelWorkers}
+func NewHandler(service service.Service, maxParallelWorkers int, wg *sync.WaitGroup) *Handler {
+	return &Handler{service: service, maxParallelWorkers: maxParallelWorkers, waitGroup: wg}
+}
+
+func (h *Handler) WaitForBackground() {
+	done := make(chan struct{})
+	go func() {
+		h.waitGroup.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		logger.Log.Info("All background tasks completed")
+	case <-time.After(5 * time.Second):
+		logger.Log.Warn("Background tasks did not finish in time")
+	}
 }
 
 // IDHandler handles GET /{id} – redirects to the original URL.

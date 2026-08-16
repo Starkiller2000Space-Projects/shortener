@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -57,7 +58,7 @@ func main() {
 		logger.Log.Error("Unable to create storage", zap.Error(err))
 	}
 	service := service.NewEndpointService(store, configData.ShowAddr, configData.IDSize)
-	handler := handlers.NewHandler(service, configData.MaxParallelWorkers)
+	handler := handlers.NewHandler(service, configData.MaxParallelWorkers, &sync.WaitGroup{})
 	auditor, err := audit.InitAudit(configData.AuditFile, configData.AuditURL, configData.MaxParallelWorkers)
 	if err != nil {
 		logger.Log.Error("Unable to initialize audit", zap.Error(err))
@@ -86,7 +87,7 @@ func main() {
 	}()
 
 	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer signal.Stop(stop)
 
 	select {

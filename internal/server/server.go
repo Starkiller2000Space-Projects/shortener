@@ -2,6 +2,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 // Server wraps an http.Server with pre-configured middleware and routes.
 type Server struct {
 	http.Server
+	WaitForBackground func()
 }
 
 // NewServer creates a new Server instance with the given address, handler, timeouts, auditor, and cookie secret.
@@ -56,6 +58,9 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 			ReadTimeout:  readTimeout,
 			WriteTimeout: writeTimeout,
 		},
+		WaitForBackground: func() {
+			h.WaitForBackground()
+		},
 	}
 }
 
@@ -64,4 +69,13 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 func (s *Server) ListenAndServe() error {
 	logger.Log.Info("Starting server", zap.String("address", s.Addr))
 	return s.Server.ListenAndServe()
+}
+
+// Shutdown stops the HTTP server.
+// Expects context.
+// Returns an error if the server wasn't closed properly.
+func (s *Server) Shutdown(ctx context.Context) error {
+	err := s.Server.Shutdown(ctx)
+	s.WaitForBackground()
+	return err
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ func TestServerRoutes(t *testing.T) {
 		Return(nil)
 	mockAuditor := NewMockAudit(t)
 
-	h := handlers.NewHandler(mockService, 10)
+	h := handlers.NewHandler(mockService, 10, &sync.WaitGroup{})
 	srv := NewServer("", h, 1*time.Second, 1*time.Second, mockAuditor, "secret")
 	handler := srv.Handler
 	ts := httptest.NewServer(handler)
