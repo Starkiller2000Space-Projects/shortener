@@ -29,7 +29,7 @@ func TestLoadConfig_Flags(t *testing.T) {
 		"-l=ERROR",
 		"-f=./storage_flag.json",
 		"-d=postgres://flag:pass@localhost:5432/shortener?sslmode=disable",
-		"-c=flag_secret",
+		"-cookie-secret=flag_secret",
 		"-max-parallel-workers=374",
 		"-audit-file=./audit_flag.log",
 		"-audit-url=https://audit-flag.com",
@@ -98,7 +98,8 @@ func TestLoadConfig_Env(t *testing.T) {
 			"WRITE_TIMEOUT",
 			"ENABLE_HTTPS",
 		} {
-			os.Unsetenv(envVar)
+			err := os.Unsetenv(envVar)
+			require.NoError(t, err)
 		}
 
 	}()
