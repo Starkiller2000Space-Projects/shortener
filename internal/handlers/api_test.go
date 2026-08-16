@@ -434,7 +434,7 @@ func BenchmarkGetUserURLsHandler(b *testing.B) {
 	w := httptest.NewRecorder()
 
 	for b.Loop() {
-		handler.GetUserURLsHandler(w, req)
+		handler.ListUserURLsHandler(w, req)
 		w.Flush()
 	}
 }

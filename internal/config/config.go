@@ -17,7 +17,8 @@ import (
 // Values are populated from environment variables, .env file, and command-line flags.
 // Flags take precedence over environment variables.
 type Config struct {
-	RunAddr            string        `env:"SERVER_ADDRESS" json:"server_address"`             // address and port to run server
+	RunAddr            string        `env:"SERVER_ADDRESS" json:"server_address"`             // address and port to run http server
+	GRPCAddr           string        `env:"GRPC_ADDRESS" json:"grpc_address"`                 // address and port to run grpc server
 	ShowAddr           string        `env:"BASE_URL" json:"base_url"`                         // address and port to show for short urls
 	IDSize             int           `env:"ID_SIZE" json:"id_size"`                           // short link id length
 	ReadTimeout        time.Duration `env:"READ_TIMEOUT" json:"read_timeout"`                 // server read timeout in seconds
@@ -44,6 +45,7 @@ func LoadConfig() *Config {
 	// default configuration
 	config := &Config{
 		RunAddr:            ":8080",
+		GRPCAddr:           ":3200",
 		IDSize:             8,
 		LoggerLevel:        "INFO",
 		MaxParallelWorkers: 100,
@@ -92,7 +94,8 @@ func LoadConfig() *Config {
 	}
 
 	// read flags directly to config
-	flag.StringVar(&config.RunAddr, "a", config.RunAddr, "address and port to run server")
+	flag.StringVar(&config.RunAddr, "a", config.RunAddr, "address and port to run http server")
+	flag.StringVar(&config.GRPCAddr, "g", config.GRPCAddr, "address and port to run grpc server")
 	flag.StringVar(&config.ShowAddr, "b", config.ShowAddr, "address and port to show for short urls")
 	flag.IntVar(&config.IDSize, "i", config.IDSize, "address and port to show for short urls")
 	flag.StringVar(&config.LoggerLevel, "l", config.LoggerLevel, "logger level")

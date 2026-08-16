@@ -103,10 +103,10 @@ func (h *Handler) PostBatchShortenHandler(w http.ResponseWriter, r *http.Request
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// GetUserURLsHandler handles GET /api/user/urls – returns all URLs created by the authenticated user.
+// ListUserURLsHandler handles GET /api/user/urls – returns all URLs created by the authenticated user.
 // Returns 200 OK with a JSON array of { "short_url": "...", "original_url": "..." }.
 // If the user has no URLs, returns 204 No Content.
-func (h *Handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ListUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 	scheme := r.Header.Get("X-Forwarded-Proto")
 	if scheme == "" {
 		scheme = "http"

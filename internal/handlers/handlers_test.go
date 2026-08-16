@@ -36,12 +36,12 @@ func newTestRouter(service *MockService, withAudit, withAuth bool) http.Handler 
 		r.Use(withTestAuth)
 	}
 	r.Get("/ping", h.PingHandler)
-	r.Get("/{id}", h.IDHandler)
-	r.Post("/", h.PostURLHandler)
+	r.Get("/{id}", h.ExpandURLHandler)
+	r.Post("/", h.ShortenURLHandler)
 	r.Route("/api", func(api chi.Router) {
 		api.Post("/shorten", h.ShortenJSONHandler)
 		api.Post("/shorten/batch", h.PostBatchShortenHandler)
-		api.Get("/user/urls", h.GetUserURLsHandler)
+		api.Get("/user/urls", h.ListUserURLsHandler)
 		api.Delete("/user/urls", h.DeleteUserURLsHandler)
 	})
 	return r
@@ -216,7 +216,7 @@ func BenchmarkIDHandler(b *testing.B) {
 	w := httptest.NewRecorder()
 
 	for b.Loop() {
-		handler.IDHandler(w, req)
+		handler.ExpandURLHandler(w, req)
 		w.Flush()
 	}
 }
@@ -382,7 +382,7 @@ func BenchmarkPostURLHandler(b *testing.B) {
 
 	for b.Loop() {
 		req.Body = io.NopCloser(bytes.NewReader(body))
-		handler.PostURLHandler(w, req)
+		handler.ShortenURLHandler(w, req)
 		w.Flush()
 	}
 }

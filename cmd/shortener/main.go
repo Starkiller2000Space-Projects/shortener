@@ -34,8 +34,6 @@ var (
 )
 
 // orNA replaces empty string value with N/A
-// Expects original string
-// Returns original string in case it was not empty. Else N/A
 func orNA(s string) string {
 	if s == "" {
 		return "N/A"
@@ -43,7 +41,6 @@ func orNA(s string) string {
 	return s
 }
 
-// entry point
 func main() {
 	fmt.Println("Build version:", orNA(buildVersion))
 	fmt.Println("Build date:", orNA(buildDate))
@@ -58,15 +55,28 @@ func main() {
 		logger.Log.Error("Unable to create storage", zap.Error(err))
 	}
 	service := service.NewEndpointService(store, configData.ShowAddr, configData.IDSize)
-	handler := handlers.NewHandler(service, configData.MaxParallelWorkers, &sync.WaitGroup{}, configData.TrustedSubnet)
+	httpHandler := handlers.NewHandler(service, configData.MaxParallelWorkers, &sync.WaitGroup{}, configData.TrustedSubnet)
+	grpcHandler := handlers.NewGRPCHandler(service)
 	auditor, err := audit.InitAudit(configData.AuditFile, configData.AuditURL, configData.MaxParallelWorkers)
 	if err != nil {
 		logger.Log.Error("Unable to initialize audit", zap.Error(err))
 	}
 	defer auditor.Stop()
-	srv := server.NewServer(configData.RunAddr, handler, configData.ReadTimeout, configData.WriteTimeout, auditor, configData.CookieSecret)
 
-	// use pprof
+	// HTTP-server
+	httpSrv := server.NewServer(configData.RunAddr, httpHandler, configData.ReadTimeout, configData.WriteTimeout, auditor, configData.CookieSecret)
+
+	// gRPC-server
+	grpcSrv := server.NewGRPCServer(
+		configData.GRPCAddr,
+		grpcHandler,
+		configData.ReadTimeout,
+		configData.WriteTimeout,
+		auditor,
+		configData.CookieSecret,
+	)
+
+	// pprof
 	go func() {
 		srv := &http.Server{
 			Addr:         "localhost:6060",
@@ -75,39 +85,58 @@ func main() {
 			IdleTimeout:  120 * time.Second,
 		}
 		log.Println(srv.ListenAndServe())
+		defer srv.Shutdown(context.Background())
 	}()
-	// create separate goroutine
-	serverErr := make(chan error, 1)
+
+	// run http in separate goroutine
+	httpErr := make(chan error, 1)
 	go func() {
 		if configData.EnableHTTPS {
-			serverErr <- srv.ListenAndServeTLS("server.pem", "server.key")
+			httpErr <- httpSrv.ListenAndServeTLS("server.pem", "server.key")
 		} else {
-			serverErr <- srv.ListenAndServe()
+			httpErr <- httpSrv.ListenAndServe()
 		}
+	}()
+
+	// run gRPC in separate goroutine
+	grpcErr := make(chan error, 1)
+	go func() {
+		grpcErr <- grpcSrv.ListenAndServe()
 	}()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	defer signal.Stop(stop)
 
+	// wait for shutdown signal or error
 	select {
 	case sig := <-stop:
-		logger.Log.Info("Shutdown signal received",
-			zap.String("signal", sig.String()),
-		)
+		logger.Log.Info("Shutdown signal received", zap.String("signal", sig.String()))
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if err := srv.Shutdown(ctx); err != nil {
-			logger.Log.Error("Graceful shutdown failed", zap.Error(err))
+		// Graceful shutdown HTTP
+		if err := httpSrv.Shutdown(ctx); err != nil {
+			logger.Log.Error("HTTP graceful shutdown failed", zap.Error(err))
 		} else {
-			logger.Log.Info("Server stopped gracefully")
+			logger.Log.Info("HTTP server stopped gracefully")
 		}
 
-	case err := <-serverErr:
+		// Graceful shutdown gRPC
+		if err := grpcSrv.Shutdown(ctx); err != nil {
+			logger.Log.Error("gRPC graceful shutdown failed", zap.Error(err))
+		} else {
+			logger.Log.Info("gRPC server stopped gracefully")
+		}
+
+	case err := <-httpErr:
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Log.Fatal("Server stopped with error", zap.Error(err))
+			logger.Log.Fatal("HTTP server stopped with error", zap.Error(err))
+		}
+	case err := <-grpcErr:
+		if err != nil {
+			logger.Log.Fatal("gRPC server stopped with error", zap.Error(err))
 		}
 	}
 }

@@ -21,7 +21,7 @@ func TestSetAndGetUserID(t *testing.T) {
 	defer response.Body.Close()
 	cookie := response.Cookies()[0]
 	assert.Equal(t, cookieName, cookie.Name)
-	userID, err := extractUserIDFromToken(cookie.Value, testSecret)
+	userID, err := GetUserIDFromToken(cookie.Value, testSecret)
 	assert.NoError(t, err)
 	assert.Equal(t, testUserID, userID)
 

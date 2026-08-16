@@ -37,16 +37,16 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 
 	// public endpoints
 	r.Get("/ping", h.PingHandler)
-	r.Get("/{id}", h.IDHandler)
+	r.Get("/{id}", h.ExpandURLHandler)
 
 	// protected endpoints
 	r.Group(func(protected chi.Router) {
 		protected.Use(middlewares.AuthMiddleware(cookieSecret))
-		protected.Post("/", h.PostURLHandler)
+		protected.Post("/", h.ShortenURLHandler)
 		protected.Route("/api", func(api chi.Router) {
 			api.Post("/shorten", h.ShortenJSONHandler)
 			api.Post("/shorten/batch", h.PostBatchShortenHandler)
-			api.Get("/user/urls", h.GetUserURLsHandler)
+			api.Get("/user/urls", h.ListUserURLsHandler)
 			api.Delete("/user/urls", h.DeleteUserURLsHandler)
 			api.Get("/internal/stats", h.StatsHandler)
 		})
@@ -65,10 +65,17 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 	}
 }
 
+// ListenAndServeTLS starts the HTTP server and logs the address.
+// Returns an error if the server cannot start.
+func (s *Server) ListenAndServeTLS(certFile, keyFile string) error {
+	logger.Log.Info("Starting HTTP server with certs", zap.String("address", s.Addr), zap.String("certificate", certFile), zap.String("key", certFile))
+	return s.Server.ListenAndServeTLS(certFile, keyFile)
+}
+
 // ListenAndServe starts the HTTP server and logs the address.
 // Returns an error if the server cannot start.
 func (s *Server) ListenAndServe() error {
-	logger.Log.Info("Starting server", zap.String("address", s.Addr))
+	logger.Log.Info("Starting HTTP server", zap.String("address", s.Addr))
 	return s.Server.ListenAndServe()
 }
 
