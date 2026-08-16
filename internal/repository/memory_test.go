@@ -261,3 +261,19 @@ func BenchmarkMemStorageDeleteBatch(b *testing.B) {
 		}
 	}
 }
+
+func TestMemStorage_GetStats(t *testing.T) {
+	storage, _ := NewMemStorage()
+	ctx := context.Background()
+
+	storage.Add(ctx, Row{ID: "1", OriginalURL: "http://a", UserID: "u1"})
+	storage.Add(ctx, Row{ID: "2", OriginalURL: "http://b", UserID: "u1"})
+	storage.Add(ctx, Row{ID: "3", OriginalURL: "http://c", UserID: "u2"})
+
+	storage.DeleteBatch(ctx, "u1", []string{"1"})
+
+	stats, err := storage.GetStats(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, stats.URLs)
+	assert.Equal(t, 2, stats.Users)
+}

@@ -159,7 +159,7 @@ func BenchmarkShortenJSONHandler(b *testing.B) {
 		CreateShortURL(mock.Anything, "https://example.com", mock.Anything, mock.Anything).
 		Return("http://localhost/abc123", nil)
 
-	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{})
+	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{}, "")
 	reqData := models.ShortenRequest{URL: "https://example.com"}
 	jsonBody, _ := json.Marshal(reqData)
 	req := httptest.NewRequest(http.MethodPost, "/api/shorten", io.NopCloser(bytes.NewReader(jsonBody)))
@@ -309,7 +309,7 @@ func BenchmarkPostBatchShortenHandler(b *testing.B) {
 		CreateShortURLsBatch(mock.Anything, reqBatch, mock.Anything, mock.Anything).
 		Return(respBatch, nil)
 
-	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{})
+	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{}, "")
 	jsonBody, _ := json.Marshal(reqBatch)
 	req := httptest.NewRequest(http.MethodPost, "/api/shorten/batch", io.NopCloser(bytes.NewReader(jsonBody)))
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
@@ -428,7 +428,7 @@ func BenchmarkGetUserURLsHandler(b *testing.B) {
 		GetUserURLs(mock.Anything, mock.Anything, mock.Anything).
 		Return(userURLs, nil)
 
-	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{})
+	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{}, "")
 	req := httptest.NewRequest(http.MethodGet, "/api/user/urls", nil)
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
 	w := httptest.NewRecorder()
@@ -541,7 +541,7 @@ func BenchmarkDeleteUserURLsHandler(b *testing.B) {
 	mockSvc := NewMockService(b)
 	mockSvc.On("DeleteUserURLs", mock.Anything, "user123", []string{"abc1", "abc2"}).Return(nil).Maybe()
 
-	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{})
+	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{}, "")
 	shortIDs := []string{"abc1", "abc2"}
 	jsonBody, _ := json.Marshal(shortIDs)
 	req := httptest.NewRequest(http.MethodDelete, "/api/user/urls", io.NopCloser(bytes.NewReader(jsonBody)))
@@ -552,5 +552,96 @@ func BenchmarkDeleteUserURLsHandler(b *testing.B) {
 		req.Body = io.NopCloser(bytes.NewReader(jsonBody))
 		handler.DeleteUserURLsHandler(w, req)
 		w.Flush()
+	}
+}
+
+func TestStatsHandler(t *testing.T) {
+	tests := []struct {
+		name           string
+		trustedSubnet  string
+		realIP         string
+		mockStats      models.Statistics
+		mockError      error
+		expectedStatus int
+		expectedBody   string
+	}{
+		{
+			name:           "success",
+			trustedSubnet:  "192.168.0.0/16",
+			realIP:         "192.168.1.10",
+			mockStats:      models.Statistics{URLs: 10, Users: 3},
+			mockError:      nil,
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"urls":10,"users":3}`,
+		},
+		{
+			name:           "empty trusted subnet",
+			trustedSubnet:  "",
+			realIP:         "192.168.1.10",
+			expectedStatus: http.StatusForbidden,
+			expectedBody:   "Forbidden\n",
+		},
+		{
+			name:           "missing X-Real-IP",
+			trustedSubnet:  "192.168.0.0/16",
+			realIP:         "",
+			expectedStatus: http.StatusForbidden,
+			expectedBody:   "Forbidden\n",
+		},
+		{
+			name:           "IP not in subnet",
+			trustedSubnet:  "192.168.0.0/16",
+			realIP:         "10.0.0.1",
+			expectedStatus: http.StatusForbidden,
+			expectedBody:   "Forbidden\n",
+		},
+		{
+			name:           "invalid IP",
+			trustedSubnet:  "192.168.0.0/16",
+			realIP:         "invalid-ip",
+			expectedStatus: http.StatusForbidden,
+			expectedBody:   "Forbidden\n",
+		},
+		{
+			name:           "invalid CIDR in config",
+			trustedSubnet:  "invalid",
+			realIP:         "192.168.1.10",
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Internal Server Error\n",
+		},
+		{
+			name:           "service error",
+			trustedSubnet:  "192.168.0.0/16",
+			realIP:         "192.168.1.10",
+			mockStats:      models.Statistics{},
+			mockError:      assert.AnError,
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   "Internal Server Error\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := NewMockService(t)
+			if tt.mockError != nil || tt.mockStats != (models.Statistics{}) {
+				mockService.On("GetStats", mock.Anything).Return(tt.mockStats, tt.mockError)
+			}
+			h := NewHandler(mockService, 5, &sync.WaitGroup{}, tt.trustedSubnet)
+			req := httptest.NewRequest(http.MethodGet, "/api/internal/stats", nil)
+			if tt.realIP != "" {
+				req.Header.Set("X-Real-IP", tt.realIP)
+			}
+			w := httptest.NewRecorder()
+
+			h.StatsHandler(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			if tt.expectedStatus == http.StatusOK {
+				assert.JSONEq(t, tt.expectedBody, w.Body.String())
+			} else {
+				assert.Equal(t, tt.expectedBody, w.Body.String())
+			}
+			mockService.AssertExpectations(t)
+		})
 	}
 }

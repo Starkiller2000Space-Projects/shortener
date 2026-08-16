@@ -58,7 +58,7 @@ func main() {
 		logger.Log.Error("Unable to create storage", zap.Error(err))
 	}
 	service := service.NewEndpointService(store, configData.ShowAddr, configData.IDSize)
-	handler := handlers.NewHandler(service, configData.MaxParallelWorkers, &sync.WaitGroup{})
+	handler := handlers.NewHandler(service, configData.MaxParallelWorkers, &sync.WaitGroup{}, configData.TrustedSubnet)
 	auditor, err := audit.InitAudit(configData.AuditFile, configData.AuditURL, configData.MaxParallelWorkers)
 	if err != nil {
 		logger.Log.Error("Unable to initialize audit", zap.Error(err))

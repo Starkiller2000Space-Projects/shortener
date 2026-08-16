@@ -32,6 +32,7 @@ type Config struct {
 	MigrationsPath     string        `env:"MIGRATIONS" json:"migrations_path"`                // path to migrations
 	EnableHTTPS        bool          `env:"ENABLE_HTTPS" json:"enable_https"`                 // enable https protocol
 	ConfigFilePath     string        `env:"CONFIG" json:"-"`                                  // path to config file (ignored in JSON)
+	TrustedSubnet      string        `env:"TRUSTED_SUBNET" json:"trusted_subnet"`             // trusted subnet
 }
 
 // LoadConfig parses configuration from .env file, environment variables,
@@ -105,6 +106,7 @@ func LoadConfig() *Config {
 	flag.BoolVar(&config.EnableHTTPS, "s", config.EnableHTTPS, "enable https protocol")
 	flag.StringVar(&config.ConfigFilePath, "c", config.ConfigFilePath, "config file path")
 	flag.StringVar(&config.ConfigFilePath, "config", config.ConfigFilePath, "config file path")
+	flag.StringVar(&config.TrustedSubnet, "t", config.TrustedSubnet, "trusted subnet in CIDR notation (e.g. 192.168.0.0/16)")
 	// read flags to temp vars
 	var readSec, writeSec float64
 	flag.Float64Var(&readSec, "r", config.ReadTimeout.Seconds(), "server read timeout in seconds")

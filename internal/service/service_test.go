@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -20,19 +22,21 @@ import (
 // test for short url creation
 func TestService_CreateShortURL(t *testing.T) {
 	idSize := 8
-	mockStorage := NewMockStorage(t)
-	mockStorage.EXPECT().Add(mock.Anything, mock.Anything).Return(nil)
+
 	type want struct {
-		short string
-		err   error
+		shortPrefix string
+		err         error
 	}
+
 	tests := []struct {
 		name        string
 		showAddr    string
 		scheme      string
 		host        string
 		originalURL string
+		ctx         context.Context
 		addError    error
+		expectAdd   bool
 		want        want
 	}{
 		{
@@ -41,10 +45,13 @@ func TestService_CreateShortURL(t *testing.T) {
 			scheme:      "http",
 			host:        "localhost:8080",
 			originalURL: "https://example.com",
-			addError:    nil,
+			ctx: requests.SetUserIDToContext(
+				context.Background(),
+				"test-user-id",
+			),
+			expectAdd: true,
 			want: want{
-				short: "https://short.com/",
-				err:   nil,
+				shortPrefix: "https://short.com/",
 			},
 		},
 		{
@@ -53,10 +60,13 @@ func TestService_CreateShortURL(t *testing.T) {
 			scheme:      "https",
 			host:        "example.com",
 			originalURL: "https://example.com/long",
-			addError:    nil,
+			ctx: requests.SetUserIDToContext(
+				context.Background(),
+				"test-user-id",
+			),
+			expectAdd: true,
 			want: want{
-				short: "https://example.com/",
-				err:   nil,
+				shortPrefix: "https://example.com/",
 			},
 		},
 		{
@@ -65,10 +75,13 @@ func TestService_CreateShortURL(t *testing.T) {
 			scheme:      "",
 			host:        "mysite.com",
 			originalURL: "https://example.com",
-			addError:    nil,
+			ctx: requests.SetUserIDToContext(
+				context.Background(),
+				"test-user-id",
+			),
+			expectAdd: true,
 			want: want{
-				short: "http://mysite.com/",
-				err:   nil,
+				shortPrefix: "http://mysite.com/",
 			},
 		},
 		{
@@ -77,29 +90,124 @@ func TestService_CreateShortURL(t *testing.T) {
 			scheme:      "http",
 			host:        "localhost",
 			originalURL: "   ",
-			addError:    nil,
+			ctx: requests.SetUserIDToContext(
+				context.Background(),
+				"test-user-id",
+			),
+			expectAdd: false,
 			want: want{
-				short: "",
-				err:   ErrEmptyURL,
+				err: ErrEmptyURL,
+			},
+		},
+		{
+			name:        "missing userID in context",
+			showAddr:    "",
+			scheme:      "http",
+			host:        "localhost",
+			originalURL: "https://example.com",
+			ctx:         context.Background(),
+			expectAdd:   false,
+			want: want{
+				err: fmt.Errorf("userID not found in context"),
+			},
+		},
+		{
+			name:        "storage add error (non-duplicate)",
+			showAddr:    "",
+			scheme:      "http",
+			host:        "localhost",
+			originalURL: "https://example.com",
+			ctx: requests.SetUserIDToContext(
+				context.Background(),
+				"test-user-id",
+			),
+			addError:  sql.ErrConnDone,
+			expectAdd: true,
+			want: want{
+				err: fmt.Errorf(
+					"failed to create short url: %w",
+					sql.ErrConnDone,
+				),
+			},
+		},
+		{
+			name:        "storage duplicate error (ErrAlreadyExists)",
+			showAddr:    "http://short.me",
+			scheme:      "https",
+			host:        "example.com",
+			originalURL: "https://example.com",
+			ctx: requests.SetUserIDToContext(
+				context.Background(),
+				"test-user-id",
+			),
+			addError: &repository.ErrAlreadyExists{
+				ExistingID: "abc123",
+			},
+			expectAdd: true,
+			want: want{
+				shortPrefix: "http://short.me/abc123",
+				err:         ErrDuplicate,
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testService := NewEndpointService(mockStorage, tt.showAddr, idSize)
-			got, err := testService.CreateShortURL(requests.SetUserIDToContext(context.Background(), "test-user-id"), tt.originalURL, tt.scheme, tt.host)
-			if tt.want.err != nil {
-				assert.Error(t, err)
-				assert.Equal(t, tt.want.err.Error(), err.Error())
-			} else {
-				assert.NoError(t, err)
-				assert.True(t, strings.HasPrefix(got, tt.want.short))
-				parsedURL, err := url.Parse(got)
-				require.NoError(t, err)
-				createdID := strings.TrimLeft(parsedURL.Path, "/")
-				assert.Equal(t, idSize, len(createdID))
+			mockStorage := NewMockStorage(t)
+
+			if tt.expectAdd {
+				mockStorage.EXPECT().
+					Add(mock.Anything, mock.Anything).
+					Return(tt.addError)
 			}
+
+			svc := NewEndpointService(
+				mockStorage,
+				tt.showAddr,
+				idSize,
+			)
+
+			got, err := svc.CreateShortURL(
+				tt.ctx,
+				tt.originalURL,
+				tt.scheme,
+				tt.host,
+			)
+
+			if tt.want.err != nil {
+				require.Error(t, err)
+
+				if errors.Is(tt.want.err, ErrEmptyURL) ||
+					errors.Is(tt.want.err, ErrDuplicate) {
+					assert.ErrorIs(t, err, tt.want.err)
+				} else {
+					assert.EqualError(t, err, tt.want.err.Error())
+				}
+
+				if errors.Is(tt.want.err, ErrDuplicate) {
+					assert.NotEmpty(t, got)
+					assert.True(
+						t,
+						strings.HasPrefix(got, tt.want.shortPrefix),
+					)
+				} else {
+					assert.Empty(t, got)
+				}
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.True(
+				t,
+				strings.HasPrefix(got, tt.want.shortPrefix),
+			)
+
+			parsed, parseErr := url.Parse(got)
+			require.NoError(t, parseErr)
+
+			id := strings.TrimLeft(parsed.Path, "/")
+			assert.Equal(t, idSize, len(id))
 		})
 	}
 }
@@ -266,4 +374,16 @@ func TestService_DeleteUserURLs(t *testing.T) {
 	// empty slice
 	err = testService.DeleteUserURLs(ctx, "user1", []string{})
 	assert.NoError(t, err)
+}
+
+func TestService_GetStats(t *testing.T) {
+	mockStorage := NewMockStorage(t)
+	service := NewEndpointService(mockStorage, "", 8)
+	expectedStats := models.Statistics{URLs: 5, Users: 2}
+	mockStorage.On("GetStats", mock.Anything).Return(expectedStats, nil)
+
+	stats, err := service.GetStats(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, expectedStats, stats)
+	mockStorage.AssertExpectations(t)
 }
