@@ -3,6 +3,7 @@ package server
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/max-marek-projects/shortener/internal/middlewares"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 // GRPCServer wraps an http.Server with pre-configured middleware and routes.
@@ -34,13 +36,20 @@ func NewGRPCServer(
 	readTimeout, writeTimeout time.Duration,
 	auditor audit.Audit,
 	cookieSecret string,
+	tlsConfig *tls.Config,
 ) *GRPCServer {
-	server := grpc.NewServer(
+	var opts []grpc.ServerOption
+	if tlsConfig != nil {
+		creds := credentials.NewTLS(tlsConfig)
+		opts = append(opts, grpc.Creds(creds))
+	}
+	opts = append(opts,
 		grpc.ChainUnaryInterceptor(
 			middlewares.GRPCAuditInterceptor(auditor),
 			middlewares.GRPCAuthInterceptor(cookieSecret),
 		),
 	)
+	server := grpc.NewServer(opts...)
 	api.RegisterShortenerServiceServer(server, h)
 	return &GRPCServer{
 		Server:            server,

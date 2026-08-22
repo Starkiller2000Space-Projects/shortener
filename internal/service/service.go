@@ -35,7 +35,7 @@ type Service interface {
 		host string,
 	) ([]models.BatchShortenResponse, error)
 	DeleteUserURLs(ctx context.Context, userID string, shortIDs []string) error
-	GetStats(ctx context.Context) (models.Statistics, error)
+	GetStats(ctx context.Context) (*models.Statistics, error)
 }
 
 // NewEndpointService creates a new service implementation with the given storage,
@@ -195,6 +195,6 @@ func (service *endpointService) DeleteUserURLs(ctx context.Context, userID strin
 }
 
 // GetStats collects server statistics and returns it as an struct
-func (service *endpointService) GetStats(ctx context.Context) (models.Statistics, error) {
+func (service *endpointService) GetStats(ctx context.Context) (*models.Statistics, error) {
 	return service.storage.GetStats(ctx)
 }

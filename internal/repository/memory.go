@@ -148,10 +148,10 @@ func (m *memStorage) DeleteBatch(ctx context.Context, userID string, shortIDs []
 }
 
 // GetStats collects server statistics and returns it as an struct
-func (m *memStorage) GetStats(ctx context.Context) (models.Statistics, error) {
+func (m *memStorage) GetStats(ctx context.Context) (*models.Statistics, error) {
 	select {
 	case <-ctx.Done():
-		return models.Statistics{}, ctx.Err()
+		return nil, ctx.Err()
 	default:
 	}
 	m.mu.RLock()
@@ -164,5 +164,5 @@ func (m *memStorage) GetStats(ctx context.Context) (models.Statistics, error) {
 			URLs++
 		}
 	}
-	return models.Statistics{URLs: URLs, Users: len(userSet)}, nil
+	return &models.Statistics{URLs: URLs, Users: len(userSet)}, nil
 }

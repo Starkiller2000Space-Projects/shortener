@@ -4,12 +4,10 @@ package shortener;
 
 option go_package = "github.com/max-marek-projects/shortener/api;api";
 
-import "google/protobuf/empty.proto";
-
 service ShortenerService {
   rpc ShortenURL (URLShortenRequest) returns (URLShortenResponse);
   rpc ExpandURL (URLExpandRequest) returns (URLExpandResponse);
-  rpc ListUserURLs (google.protobuf.Empty) returns (UserURLsResponse);
+  rpc ListUserURLs (UserURLsRequest) returns (UserURLsResponse);
 }
 
 message URLShortenRequest {
@@ -26,6 +24,9 @@ message URLExpandRequest {
 
 message URLExpandResponse {
   string result = 1;
+}
+
+message UserURLsRequest {
 }
 
 message UserURLsResponse {

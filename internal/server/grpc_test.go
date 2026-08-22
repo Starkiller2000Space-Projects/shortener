@@ -13,7 +13,7 @@ func TestGRPCServer_New(t *testing.T) {
 	grpcHandler := handlers.NewGRPCHandler(mockSvc)
 	auditor := NewMockAudit(t)
 
-	srv := NewGRPCServer(":3200", grpcHandler, 5*time.Second, 5*time.Second, auditor, "secret")
+	srv := NewGRPCServer(":3200", grpcHandler, 5*time.Second, 5*time.Second, auditor, "secret", nil)
 	assert.NotNil(t, srv)
 	assert.Equal(t, ":3200", srv.Addr)
 	assert.NotNil(t, srv.Server)

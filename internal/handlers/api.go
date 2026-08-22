@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
 	"time"
 
@@ -166,34 +165,6 @@ func (h *Handler) DeleteUserURLsHandler(w http.ResponseWriter, r *http.Request) 
 
 // StatsHandler returns server statistics
 func (h *Handler) StatsHandler(w http.ResponseWriter, r *http.Request) {
-	if h.trustedSubnet == "" {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return
-	}
-
-	ipStr := r.Header.Get("X-Real-IP")
-	if ipStr == "" {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return
-	}
-
-	_, subnet, err := net.ParseCIDR(h.trustedSubnet)
-	if err != nil {
-		logger.Log.Error("invalid trusted subnet", zap.String("subnet", h.trustedSubnet), zap.Error(err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	ip := net.ParseIP(ipStr)
-	if ip == nil {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return
-	}
-
-	if !subnet.Contains(ip) {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return
-	}
 
 	statistics, err := h.service.GetStats(r.Context())
 	if err != nil {

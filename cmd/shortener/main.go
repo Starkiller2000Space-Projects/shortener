@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"log"
@@ -52,21 +53,35 @@ func main() {
 	}
 	store, err := repository.GetStorage(configData)
 	if err != nil {
-		logger.Log.Error("Unable to create storage", zap.Error(err))
+		logger.Log.Fatal("Unable to create storage", zap.Error(err))
 	}
 	service := service.NewEndpointService(store, configData.ShowAddr, configData.IDSize)
-	httpHandler := handlers.NewHandler(service, configData.MaxParallelWorkers, &sync.WaitGroup{}, configData.TrustedSubnet)
+	httpHandler := handlers.NewHandler(service, configData.MaxParallelWorkers, &sync.WaitGroup{})
 	grpcHandler := handlers.NewGRPCHandler(service)
 	auditor, err := audit.InitAudit(configData.AuditFile, configData.AuditURL, configData.MaxParallelWorkers)
 	if err != nil {
-		logger.Log.Error("Unable to initialize audit", zap.Error(err))
+		logger.Log.Fatal("Unable to initialize audit", zap.Error(err))
 	}
 	defer auditor.Stop()
 
 	// HTTP-server
-	httpSrv := server.NewServer(configData.RunAddr, httpHandler, configData.ReadTimeout, configData.WriteTimeout, auditor, configData.CookieSecret)
+	httpSrv, err := server.NewServer(configData.RunAddr, httpHandler, configData.ReadTimeout, configData.WriteTimeout, auditor, configData.CookieSecret, configData.TrustedSubnet)
+	if err != nil {
+		logger.Log.Fatal("Unable to create requests handler", zap.Error(err))
+	}
 
 	// gRPC-server
+	var tlsConfig *tls.Config
+	if configData.EnableHTTPS {
+		cert, err := tls.LoadX509KeyPair("server.pem", "server.key")
+		if err != nil {
+			logger.Log.Fatal("failed to load TLS certificates", zap.Error(err))
+		}
+		tlsConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+		}
+	}
 	grpcSrv := server.NewGRPCServer(
 		configData.GRPCAddr,
 		grpcHandler,
@@ -74,6 +89,7 @@ func main() {
 		configData.WriteTimeout,
 		auditor,
 		configData.CookieSecret,
+		tlsConfig,
 	)
 
 	// pprof
@@ -84,7 +100,9 @@ func main() {
 			WriteTimeout: configData.WriteTimeout,
 			IdleTimeout:  120 * time.Second,
 		}
-		log.Println(srv.ListenAndServe())
+		if err := srv.ListenAndServe(); err != nil {
+			logger.Log.Info("error running server", zap.Error(err))
+		}
 		defer srv.Shutdown(context.Background())
 	}()
 

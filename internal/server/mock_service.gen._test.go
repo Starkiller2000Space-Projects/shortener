@@ -248,22 +248,24 @@ func (_c *MockService_GetOriginalURL_Call) RunAndReturn(run func(context.Context
 }
 
 // GetStats provides a mock function with given fields: ctx
-func (_m *MockService) GetStats(ctx context.Context) (models.Statistics, error) {
+func (_m *MockService) GetStats(ctx context.Context) (*models.Statistics, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetStats")
 	}
 
-	var r0 models.Statistics
+	var r0 *models.Statistics
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (models.Statistics, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) (*models.Statistics, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) models.Statistics); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) *models.Statistics); ok {
 		r0 = rf(ctx)
 	} else {
-		r0 = ret.Get(0).(models.Statistics)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*models.Statistics)
+		}
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
@@ -293,12 +295,12 @@ func (_c *MockService_GetStats_Call) Run(run func(ctx context.Context)) *MockSer
 	return _c
 }
 
-func (_c *MockService_GetStats_Call) Return(_a0 models.Statistics, _a1 error) *MockService_GetStats_Call {
+func (_c *MockService_GetStats_Call) Return(_a0 *models.Statistics, _a1 error) *MockService_GetStats_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *MockService_GetStats_Call) RunAndReturn(run func(context.Context) (models.Statistics, error)) *MockService_GetStats_Call {
+func (_c *MockService_GetStats_Call) RunAndReturn(run func(context.Context) (*models.Statistics, error)) *MockService_GetStats_Call {
 	_c.Call.Return(run)
 	return _c
 }

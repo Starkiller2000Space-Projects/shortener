@@ -3,6 +3,7 @@ package server
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"time"
 
@@ -26,7 +27,7 @@ type Server struct {
 // - Recoverer, Gzip, Logger, Audit middleware for all routes.
 // - Public routes: /ping, /{id}
 // - Protected routes (with AuthMiddleware): POST /, /api/shorten, /api/shorten/batch, /api/user/urls (GET/DELETE).
-func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.Duration, auditor audit.Audit, cookieSecret string) *Server {
+func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.Duration, auditor audit.Audit, cookieSecret, trustedSubnet string) (*Server, error) {
 	r := chi.NewRouter()
 
 	//middlewares
@@ -35,9 +36,22 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 	r.Use(middlewares.LoggerMiddleware)
 	r.Use(middlewares.AuditMiddleware(auditor))
 
+	var subnet *net.IPNet
+	var err error
+	if trustedSubnet != "" {
+		_, subnet, err = net.ParseCIDR(trustedSubnet)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	// public endpoints
 	r.Get("/ping", h.PingHandler)
 	r.Get("/{id}", h.ExpandURLHandler)
+	r.Group(func(trustedSubnet chi.Router) {
+		trustedSubnet.Use(middlewares.TrustedSubnetMiddleware(subnet))
+		trustedSubnet.Get("/api/internal/stats", h.StatsHandler)
+	})
 
 	// protected endpoints
 	r.Group(func(protected chi.Router) {
@@ -48,7 +62,6 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 			api.Post("/shorten/batch", h.PostBatchShortenHandler)
 			api.Get("/user/urls", h.ListUserURLsHandler)
 			api.Delete("/user/urls", h.DeleteUserURLsHandler)
-			api.Get("/internal/stats", h.StatsHandler)
 		})
 	})
 
@@ -62,7 +75,7 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 		WaitForBackground: func() {
 			h.WaitForBackground()
 		},
-	}
+	}, nil
 }
 
 // ListenAndServeTLS starts the HTTP server and logs the address.

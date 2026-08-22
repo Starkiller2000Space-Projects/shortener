@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // GRPCHandler handles grpc endpoints for URL shortening and redirection.
@@ -53,7 +52,7 @@ func (h *GRPCHandler) ShortenURL(
 		logger.Log.Error("No audit data in context")
 		return nil, status.Error(
 			codes.Internal,
-			"No audit data",
+			"Internal error",
 		)
 	}
 	auditData.Action = models.AuditShorten
@@ -78,9 +77,9 @@ func (h *GRPCHandler) ShortenURL(
 			"Internal error",
 		)
 	}
-	return &api.URLShortenResponse{
-		Result: result,
-	}, nil
+	response := &api.URLShortenResponse{}
+	response.SetResult(result)
+	return response, nil
 }
 
 // ExpandURL handles returns  original URL.
@@ -101,35 +100,38 @@ func (h *GRPCHandler) ExpandURL(
 		if errors.Is(err, repository.ErrGone) {
 			return nil, status.Error(codes.NotFound, "url has been deleted")
 		}
-		logger.Log.Error("Error retrieving original url", zap.Any("error", err))
-		return nil, status.Error(codes.Internal, "bad request")
+		logger.Log.Error("Error retrieving original url", zap.Error(err))
+		return nil, status.Error(codes.Internal, "Internal error")
 	}
 	auditData, ok := audit.GetAuditDataFromContext(ctx)
 	if !ok {
 		logger.Log.Error("No audit data in context")
-		return nil, status.Error(codes.Internal, "id is required")
+		return nil, status.Error(codes.Internal, "Internal error")
 	}
 	auditData.Action = models.AuditFollow
 	auditData.URL = originalURL
-	return &api.URLExpandResponse{Result: originalURL}, nil
+	response := &api.URLExpandResponse{}
+	response.SetResult(originalURL)
+	return response, nil
 }
 
 // ListUserURLs returns all URLs created by the authenticated user.
 func (h *GRPCHandler) ListUserURLs(
 	ctx context.Context,
-	_ *emptypb.Empty,
+	req *api.UserURLsRequest,
 ) (*api.UserURLsResponse, error) {
 	urls, err := h.service.GetUserURLs(ctx, "", "") // unable to get scheme or host with grpc
 	if err != nil {
 		logger.Log.Error("failed to get user URLs", zap.Error(err))
-		return nil, status.Error(codes.Internal, "failed to get user urls")
+		return nil, status.Error(codes.Internal, "Internal error")
 	}
 	pbUrls := make([]*api.URLData, len(urls))
 	for i, u := range urls {
-		pbUrls[i] = &api.URLData{
-			ShortUrl:    u.ShortURL,
-			OriginalUrl: u.OriginalURL,
-		}
+		pbUrls[i] = &api.URLData{}
+		pbUrls[i].SetOriginalUrl(u.OriginalURL)
+		pbUrls[i].SetShortUrl(u.ShortURL)
 	}
-	return &api.UserURLsResponse{Urls: pbUrls}, nil
+	response := &api.UserURLsResponse{}
+	response.SetUrls(pbUrls)
+	return response, nil
 }

@@ -60,4 +60,4 @@ resets:
 	go run ./cmd/reset/main.go
 
 proto:
-	protoc --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative api/shortener.proto
+	protoc --go_opt=default_api_level=API_OPAQUE --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative api/shortener.proto

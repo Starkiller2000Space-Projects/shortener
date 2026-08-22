@@ -22,7 +22,7 @@ type Storage interface {
 	AddBatch(ctx context.Context, items []Row) error
 	GetUserURLs(ctx context.Context, userID string) ([]UserURL, error)
 	DeleteBatch(ctx context.Context, userID string, shortIDs []string) error
-	GetStats(ctx context.Context) (models.Statistics, error)
+	GetStats(ctx context.Context) (*models.Statistics, error)
 }
 
 // GetStorage creates a new Storage instance based on the provided configuration.

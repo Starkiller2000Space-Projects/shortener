@@ -61,7 +61,7 @@ func (s *simpleStorage) Ping(ctx context.Context) error {
 func ExampleHandler_ShortenURLHandler() {
 	store := &simpleStorage{}
 	svc := service.NewEndpointService(store, "http://localhost:8080", 8)
-	h := handlers.NewHandler(svc, 10, &sync.WaitGroup{}, "")
+	h := handlers.NewHandler(svc, 10, &sync.WaitGroup{})
 
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader([]byte("https://example.com")))
 	w := httptest.NewRecorder()
@@ -78,7 +78,7 @@ func ExampleHandler_ShortenURLHandler() {
 func ExampleHandler_ShortenJSONHandler() {
 	store := &simpleStorage{}
 	svc := service.NewEndpointService(store, "http://localhost:8080", 8)
-	h := handlers.NewHandler(svc, 10, &sync.WaitGroup{}, "")
+	h := handlers.NewHandler(svc, 10, &sync.WaitGroup{})
 
 	body := models.ShortenRequest{URL: "https://example.com"}
 	data, _ := json.Marshal(body)
@@ -98,7 +98,7 @@ func ExampleHandler_ShortenJSONHandler() {
 func ExampleHandler_PostBatchShortenHandler() {
 	store := &simpleStorage{}
 	svc := service.NewEndpointService(store, "http://localhost:8080", 8)
-	h := handlers.NewHandler(svc, 10, &sync.WaitGroup{}, "")
+	h := handlers.NewHandler(svc, 10, &sync.WaitGroup{})
 
 	batch := []models.BatchShortenRequest{
 		{CorrelationID: "1", OriginalURL: "https://example.com"},
@@ -119,7 +119,7 @@ func ExampleHandler_PostBatchShortenHandler() {
 func ExampleHandler_ExpandURLHandler() {
 	store := &simpleStorage{}
 	svc := service.NewEndpointService(store, "", 8) // no base URL, use host from request
-	h := handlers.NewHandler(svc, 10, &sync.WaitGroup{}, "")
+	h := handlers.NewHandler(svc, 10, &sync.WaitGroup{})
 
 	req := httptest.NewRequest(http.MethodGet, "/abc123", nil)
 	w := httptest.NewRecorder()
@@ -136,7 +136,7 @@ func ExampleHandler_ExpandURLHandler() {
 func ExampleHandler_ListUserURLsHandler() {
 	store := &simpleStorage{}
 	svc := service.NewEndpointService(store, "http://localhost:8080", 8)
-	h := handlers.NewHandler(svc, 10, &sync.WaitGroup{}, "")
+	h := handlers.NewHandler(svc, 10, &sync.WaitGroup{})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/user/urls", nil)
 	w := httptest.NewRecorder()
@@ -155,7 +155,7 @@ func ExampleHandler_ListUserURLsHandler() {
 func ExampleHandler_DeleteUserURLsHandler() {
 	store := &simpleStorage{}
 	svc := service.NewEndpointService(store, "http://localhost:8080", 8)
-	h := handlers.NewHandler(svc, 10, &sync.WaitGroup{}, "")
+	h := handlers.NewHandler(svc, 10, &sync.WaitGroup{})
 
 	shortIDs := []string{"abc123", "def456"}
 	data, _ := json.Marshal(shortIDs)
@@ -173,7 +173,7 @@ func ExampleHandler_DeleteUserURLsHandler() {
 func ExampleHandler_PingHandler() {
 	store := &simpleStorage{}
 	svc := service.NewEndpointService(store, "http://localhost:8080", 8)
-	h := handlers.NewHandler(svc, 10, &sync.WaitGroup{}, "")
+	h := handlers.NewHandler(svc, 10, &sync.WaitGroup{})
 
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
 	w := httptest.NewRecorder()

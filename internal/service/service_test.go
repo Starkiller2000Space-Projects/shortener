@@ -379,7 +379,7 @@ func TestService_DeleteUserURLs(t *testing.T) {
 func TestService_GetStats(t *testing.T) {
 	mockStorage := NewMockStorage(t)
 	service := NewEndpointService(mockStorage, "", 8)
-	expectedStats := models.Statistics{URLs: 5, Users: 2}
+	expectedStats := &models.Statistics{URLs: 5, Users: 2}
 	mockStorage.EXPECT().GetStats(mock.Anything).Return(expectedStats, nil)
 
 	stats, err := service.GetStats(context.Background())

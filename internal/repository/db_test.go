@@ -655,11 +655,15 @@ func TestDBStorage_GetStats(t *testing.T) {
 		config:  &db.DBConf{},
 	}
 
+	mock.ExpectBegin()
+
 	rows := sqlmock.NewRows([]string{"count"}).AddRow(10)
 	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM urls WHERE is_deleted = false`).WillReturnRows(rows)
 
 	rowsUsers := sqlmock.NewRows([]string{"count"}).AddRow(3)
 	mock.ExpectQuery(`SELECT COUNT\(DISTINCT user_id\) FROM urls WHERE is_deleted = false`).WillReturnRows(rowsUsers)
+
+	mock.ExpectCommit()
 
 	stats, err := storage.GetStats(context.Background())
 	assert.NoError(t, err)

@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestGRPCHandler_ShortenURL(t *testing.T) {
@@ -68,7 +67,7 @@ func TestGRPCHandler_ShortenURL(t *testing.T) {
 			audit:   false,
 			want: want{
 				code:    codes.Internal,
-				status:  "No audit data",
+				status:  "Internal error",
 				success: false,
 				body:    "",
 			},
@@ -133,10 +132,11 @@ func TestGRPCHandler_ShortenURL(t *testing.T) {
 			if test.audit {
 				ctx = audit.SetAuditDataToContext(ctx, &models.AuditData{})
 			}
-			req := &api.URLShortenRequest{Url: test.request}
+			req := &api.URLShortenRequest{}
+			req.SetUrl(test.request)
 			resp, err := handler.ShortenURL(ctx, req)
 			if test.want.success {
-				assert.Contains(t, resp.Result, test.want.body)
+				assert.Contains(t, resp.GetResult(), test.want.body)
 				assert.NoError(t, err)
 				return
 			}
@@ -153,6 +153,11 @@ func TestGRPCHandler_ShortenURL(t *testing.T) {
 func TestGRPCHandler_ExpandURL(t *testing.T) {
 	fixedID := "test1234"
 	existingURL := "https://example.com/"
+
+	fixedIDRequest := &api.URLExpandRequest{}
+	fixedIDRequest.SetId(fixedID)
+
+	emptyRequest := &api.URLExpandRequest{}
 
 	type want struct {
 		code    codes.Code
@@ -172,7 +177,7 @@ func TestGRPCHandler_ExpandURL(t *testing.T) {
 	}{
 		{
 			name: "positive test",
-			req:  &api.URLExpandRequest{Id: fixedID},
+			req:  fixedIDRequest,
 			service: &serviceData{
 				value: existingURL,
 				err:   nil,
@@ -186,7 +191,7 @@ func TestGRPCHandler_ExpandURL(t *testing.T) {
 		},
 		{
 			name:  "empty id test",
-			req:   &api.URLExpandRequest{Id: ""},
+			req:   emptyRequest,
 			audit: true,
 			want: want{
 				code:    codes.InvalidArgument,
@@ -196,7 +201,7 @@ func TestGRPCHandler_ExpandURL(t *testing.T) {
 		},
 		{
 			name: "missing id (not found)",
-			req:  &api.URLExpandRequest{Id: fixedID},
+			req:  fixedIDRequest,
 			service: &serviceData{
 				value: "",
 				err:   repository.ErrNotFound,
@@ -210,7 +215,7 @@ func TestGRPCHandler_ExpandURL(t *testing.T) {
 		},
 		{
 			name: "gone test",
-			req:  &api.URLExpandRequest{Id: fixedID},
+			req:  fixedIDRequest,
 			service: &serviceData{
 				value: "",
 				err:   repository.ErrGone,
@@ -224,7 +229,7 @@ func TestGRPCHandler_ExpandURL(t *testing.T) {
 		},
 		{
 			name: "no audit",
-			req:  &api.URLExpandRequest{Id: fixedID},
+			req:  fixedIDRequest,
 			service: &serviceData{
 				value: existingURL,
 				err:   nil,
@@ -232,7 +237,7 @@ func TestGRPCHandler_ExpandURL(t *testing.T) {
 			audit: false,
 			want: want{
 				code:    codes.Internal,
-				message: "id is required", // из-за сообщения в коде
+				message: "Internal error", // из-за сообщения в коде
 				result:  "",
 			},
 		},
@@ -256,7 +261,7 @@ func TestGRPCHandler_ExpandURL(t *testing.T) {
 			if tt.want.code == codes.OK {
 				assert.NoError(t, err)
 				assert.NotNil(t, resp)
-				assert.Equal(t, tt.want.result, resp.Result)
+				assert.Equal(t, tt.want.result, resp.GetResult())
 			} else {
 				assert.Nil(t, resp)
 				assert.Error(t, err)
@@ -319,7 +324,7 @@ func TestGRPCHandler_ListUserURLs(t *testing.T) {
 			},
 			want: want{
 				code:    codes.Internal,
-				message: "failed to get user urls",
+				message: "Internal error",
 			},
 		},
 	}
@@ -333,20 +338,20 @@ func TestGRPCHandler_ListUserURLs(t *testing.T) {
 			}
 			handler := NewGRPCHandler(mockSvc)
 			ctx := context.Background()
-			resp, err := handler.ListUserURLs(ctx, &emptypb.Empty{})
+			resp, err := handler.ListUserURLs(ctx, &api.UserURLsRequest{})
 
 			if tt.want.code == codes.OK {
 				assert.NoError(t, err)
 				assert.NotNil(t, resp)
 				if tt.want.hasData {
-					assert.Len(t, resp.Urls, tt.want.count)
+					assert.Len(t, resp.GetUrls(), tt.want.count)
 					// проверяем поля первого элемента для уверенности
 					if tt.want.count > 0 {
-						assert.Equal(t, "https://example.com/12345", resp.Urls[0].ShortUrl)
-						assert.Equal(t, "https://example.com/very/long/", resp.Urls[0].OriginalUrl)
+						assert.Equal(t, "https://example.com/12345", resp.GetUrls()[0].GetShortUrl())
+						assert.Equal(t, "https://example.com/very/long/", resp.GetUrls()[0].GetOriginalUrl())
 					}
 				} else {
-					assert.Empty(t, resp.Urls)
+					assert.Empty(t, resp.GetUrls())
 				}
 			} else {
 				assert.Nil(t, resp)
