@@ -4,6 +4,8 @@ package repository
 import (
 	"context"
 	"sync"
+
+	"github.com/max-marek-projects/shortener/internal/models"
 )
 
 // memStorage is an in-memory storage backend using maps protected by a RWMutex.
@@ -97,7 +99,7 @@ func (m *memStorage) AddBatch(ctx context.Context, items []Row) error {
 	return m.addBatch(items)
 }
 
-// get all urls added by current user
+// GetUserURLs gets all urls added by current user
 func (m *memStorage) GetUserURLs(ctx context.Context, userID string) ([]UserURL, error) {
 	select {
 	case <-ctx.Done():
@@ -143,4 +145,24 @@ func (m *memStorage) DeleteBatch(ctx context.Context, userID string, shortIDs []
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.deleteBatch(userID, shortIDs)
+}
+
+// GetStats collects server statistics and returns it as an struct
+func (m *memStorage) GetStats(ctx context.Context) (models.Statistics, error) {
+	select {
+	case <-ctx.Done():
+		return models.Statistics{}, ctx.Err()
+	default:
+	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	userSet := make(map[string]bool)
+	URLs := 0
+	for _, info := range m.data {
+		if !info.deleted {
+			userSet[info.userID] = true
+			URLs++
+		}
+	}
+	return models.Statistics{URLs: URLs, Users: len(userSet)}, nil
 }

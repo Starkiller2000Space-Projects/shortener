@@ -247,6 +247,62 @@ func (_c *MockService_GetOriginalURL_Call) RunAndReturn(run func(context.Context
 	return _c
 }
 
+// GetStats provides a mock function with given fields: ctx
+func (_m *MockService) GetStats(ctx context.Context) (models.Statistics, error) {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetStats")
+	}
+
+	var r0 models.Statistics
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (models.Statistics, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) models.Statistics); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(models.Statistics)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_GetStats_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetStats'
+type MockService_GetStats_Call struct {
+	*mock.Call
+}
+
+// GetStats is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockService_Expecter) GetStats(ctx interface{}) *MockService_GetStats_Call {
+	return &MockService_GetStats_Call{Call: _e.mock.On("GetStats", ctx)}
+}
+
+func (_c *MockService_GetStats_Call) Run(run func(ctx context.Context)) *MockService_GetStats_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *MockService_GetStats_Call) Return(_a0 models.Statistics, _a1 error) *MockService_GetStats_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_GetStats_Call) RunAndReturn(run func(context.Context) (models.Statistics, error)) *MockService_GetStats_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetUserURLs provides a mock function with given fields: ctx, scheme, host
 func (_m *MockService) GetUserURLs(ctx context.Context, scheme string, host string) ([]models.UserURL, error) {
 	ret := _m.Called(ctx, scheme, host)

@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -87,4 +88,69 @@ func BenchmarkFileAuditNotify(b *testing.B) {
 	for b.Loop() {
 		observer.Notify(event)
 	}
+}
+
+func TestSetAuditDataToContext(t *testing.T) {
+	ctx := context.Background()
+
+	auditData := &models.AuditData{Action: models.AuditFollow, URL: "https://example.com", UserID: "123"}
+
+	gotCtx := SetAuditDataToContext(ctx, auditData)
+
+	require.NotNil(t, gotCtx)
+
+	got, ok := GetAuditDataFromContext(gotCtx)
+
+	require.True(t, ok)
+	assert.Same(t, auditData, got)
+}
+
+func TestGetAuditDataFromContext(t *testing.T) {
+	t.Run("audit data exists", func(t *testing.T) {
+		auditData := &models.AuditData{Action: models.AuditFollow, URL: "https://example.com", UserID: "123"}
+
+		ctx := SetAuditDataToContext(
+			context.Background(),
+			auditData,
+		)
+
+		got, ok := GetAuditDataFromContext(ctx)
+
+		require.True(t, ok)
+		assert.Same(t, auditData, got)
+	})
+
+	t.Run("audit data does not exist", func(t *testing.T) {
+		ctx := context.Background()
+
+		got, ok := GetAuditDataFromContext(ctx)
+
+		assert.False(t, ok)
+		assert.Nil(t, got)
+	})
+
+	t.Run("audit data is nil", func(t *testing.T) {
+		ctx := SetAuditDataToContext(
+			context.Background(),
+			nil,
+		)
+		got, ok := GetAuditDataFromContext(ctx)
+		assert.True(t, ok)
+		assert.Nil(t, got)
+	})
+}
+
+func TestSetAuditDataToContext_Override(t *testing.T) {
+	first := &models.AuditData{}
+	second := &models.AuditData{}
+
+	ctx := context.Background()
+
+	ctx = SetAuditDataToContext(ctx, first)
+	ctx = SetAuditDataToContext(ctx, second)
+
+	got, ok := GetAuditDataFromContext(ctx)
+
+	require.True(t, ok)
+	assert.Same(t, second, got)
 }

@@ -9,8 +9,10 @@ import (
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
+	"github.com/lib/pq"
 	"github.com/max-marek-projects/shortener/internal/config/db"
 	"github.com/max-marek-projects/shortener/internal/logger"
+	"github.com/max-marek-projects/shortener/internal/models"
 	"go.uber.org/zap"
 
 	_ "github.com/golang-migrate/migrate/v4/database/postgres" // required for migrations
@@ -140,6 +142,7 @@ func (dbs *dbStorage) buildBatchInsertQuery(items []Row) (string, []any, error) 
 	return b.String(), args, nil
 }
 
+// GetUserURLs gets all urls added by current user
 func (dbs *dbStorage) GetUserURLs(ctx context.Context, userID string) ([]UserURL, error) {
 	query := `SELECT id, original_url FROM urls WHERE user_id = $1 AND is_deleted = false`
 	rows, err := dbs.storage.QueryContext(ctx, query, userID)
@@ -161,14 +164,29 @@ func (dbs *dbStorage) GetUserURLs(ctx context.Context, userID string) ([]UserURL
 	return res, nil
 }
 
+// delete batch by user id and short ids with mutex
 func (dbs *dbStorage) DeleteBatch(ctx context.Context, userID string, shortIDs []string) error {
 	if len(shortIDs) == 0 {
 		return nil
 	}
 	query := `UPDATE urls SET is_deleted = true WHERE user_id = $1 AND id = ANY($2)`
-	_, err := dbs.storage.ExecContext(ctx, query, userID, shortIDs)
+	_, err := dbs.storage.ExecContext(ctx, query, userID, pq.Array(shortIDs))
 	if err != nil {
 		return fmt.Errorf("failed to delete batch: %w", err)
 	}
 	return nil
+}
+
+// GetStats collects server statistics and returns it as an struct
+func (dbs *dbStorage) GetStats(ctx context.Context) (models.Statistics, error) {
+	var urls, users int
+	err := dbs.storage.QueryRowContext(ctx, `SELECT COUNT(*) FROM urls WHERE is_deleted = false`).Scan(&urls)
+	if err != nil {
+		return models.Statistics{}, fmt.Errorf("failed to count urls: %w", err)
+	}
+	err = dbs.storage.QueryRowContext(ctx, `SELECT COUNT(DISTINCT user_id) FROM urls WHERE is_deleted = false`).Scan(&users)
+	if err != nil {
+		return models.Statistics{}, fmt.Errorf("failed to count users: %w", err)
+	}
+	return models.Statistics{URLs: urls, Users: users}, nil
 }

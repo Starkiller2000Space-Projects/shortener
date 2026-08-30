@@ -48,6 +48,7 @@ func NewServer(addr string, h *handlers.Handler, readTimeout, writeTimeout time.
 			api.Post("/shorten/batch", h.PostBatchShortenHandler)
 			api.Get("/user/urls", h.GetUserURLsHandler)
 			api.Delete("/user/urls", h.DeleteUserURLsHandler)
+			api.Get("/internal/stats", h.StatsHandler)
 		})
 	})
 

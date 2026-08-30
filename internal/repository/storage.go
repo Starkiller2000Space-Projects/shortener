@@ -8,6 +8,7 @@ import (
 	"github.com/max-marek-projects/shortener/internal/config"
 	"github.com/max-marek-projects/shortener/internal/config/db"
 	"github.com/max-marek-projects/shortener/internal/logger"
+	"github.com/max-marek-projects/shortener/internal/models"
 )
 
 // Storage defines the interface for URL storage backends.
@@ -21,6 +22,7 @@ type Storage interface {
 	AddBatch(ctx context.Context, items []Row) error
 	GetUserURLs(ctx context.Context, userID string) ([]UserURL, error)
 	DeleteBatch(ctx context.Context, userID string, shortIDs []string) error
+	GetStats(ctx context.Context) (models.Statistics, error)
 }
 
 // GetStorage creates a new Storage instance based on the provided configuration.

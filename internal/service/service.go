@@ -31,6 +31,7 @@ type Service interface {
 	) ([]models.BatchShortenResponse, error)
 	GetUserURLs(ctx context.Context, scheme, host string) ([]models.UserURL, error)
 	DeleteUserURLs(ctx context.Context, userID string, shortIDs []string) error
+	GetStats(ctx context.Context) (models.Statistics, error)
 }
 
 // NewEndpointService creates a new service implementation with the given storage,
@@ -108,6 +109,7 @@ func (service *endpointService) GetOriginalURL(ctx context.Context, id string) (
 
 }
 
+// Ping checks if server is available
 func (service *endpointService) Ping(ctx context.Context) error {
 	return service.storage.Ping(ctx)
 }
@@ -155,6 +157,7 @@ func (service *endpointService) CreateShortURLsBatch(
 	return resp, nil
 }
 
+// GetUserURLs gets all urls added by current user
 func (service *endpointService) GetUserURLs(ctx context.Context, scheme, host string) ([]models.UserURL, error) {
 	userID, ok := requests.GetUserIDFromContext(ctx)
 	if !ok {
@@ -179,9 +182,15 @@ func (service *endpointService) GetUserURLs(ctx context.Context, scheme, host st
 	return result, nil
 }
 
+// DeleteUserURLs deletes all urls created by current user
 func (service *endpointService) DeleteUserURLs(ctx context.Context, userID string, shortIDs []string) error {
 	if len(shortIDs) == 0 {
 		return nil
 	}
 	return service.storage.DeleteBatch(ctx, userID, shortIDs)
+}
+
+// GetStats collects server statistics and returns it as an struct
+func (service *endpointService) GetStats(ctx context.Context) (models.Statistics, error) {
+	return service.storage.GetStats(ctx)
 }

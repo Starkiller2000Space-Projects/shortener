@@ -22,11 +22,12 @@ type Handler struct {
 	service            service.Service
 	maxParallelWorkers int
 	waitGroup          *sync.WaitGroup
+	trustedSubnet      string
 }
 
 // NewHandler creates a new Handler with the given service and max parallel workers.
-func NewHandler(service service.Service, maxParallelWorkers int, wg *sync.WaitGroup) *Handler {
-	return &Handler{service: service, maxParallelWorkers: maxParallelWorkers, waitGroup: wg}
+func NewHandler(service service.Service, maxParallelWorkers int, wg *sync.WaitGroup, trustedSubnet string) *Handler {
+	return &Handler{service: service, maxParallelWorkers: maxParallelWorkers, waitGroup: wg, trustedSubnet: trustedSubnet}
 }
 
 func (h *Handler) WaitForBackground() {
