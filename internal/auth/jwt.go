@@ -45,11 +45,14 @@ func SetUserCookie(w http.ResponseWriter, userID, secretKey string) error {
 	return nil
 }
 
-// extractUserIDFromToken parses and validates a JWT token string.
+// GetUserIDFromToken parses and validates a JWT token string.
 // It returns the user ID from the claims or an error if the token is invalid.
-func extractUserIDFromToken(token string, secretKey string) (string, error) {
+func GetUserIDFromToken(token string, secretKey string) (string, error) {
 	claims := &Claims{}
 	tokenData, err := jwt.ParseWithClaims(token, claims, func(t *jwt.Token) (interface{}, error) {
+		if t.Method != jwt.SigningMethodHS256 {
+			return nil, errors.New("unexpected signing method")
+		}
 		return []byte(secretKey), nil
 	})
 	if err != nil {
@@ -57,6 +60,9 @@ func extractUserIDFromToken(token string, secretKey string) (string, error) {
 	}
 	if !tokenData.Valid {
 		return "", errors.New("invalid token")
+	}
+	if claims.UserID == "" {
+		return "", errors.New("userID is empty")
 	}
 	return claims.UserID, nil
 }
@@ -68,5 +74,5 @@ func GetUserIDFromRequest(r *http.Request, secretKey string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return extractUserIDFromToken(cookie.Value, secretKey)
+	return GetUserIDFromToken(cookie.Value, secretKey)
 }

@@ -178,15 +178,23 @@ func (dbs *dbStorage) DeleteBatch(ctx context.Context, userID string, shortIDs [
 }
 
 // GetStats collects server statistics and returns it as an struct
-func (dbs *dbStorage) GetStats(ctx context.Context) (models.Statistics, error) {
-	var urls, users int
-	err := dbs.storage.QueryRowContext(ctx, `SELECT COUNT(*) FROM urls WHERE is_deleted = false`).Scan(&urls)
+func (dbs *dbStorage) GetStats(ctx context.Context) (*models.Statistics, error) {
+	tx, err := dbs.storage.BeginTx(ctx, nil)
 	if err != nil {
-		return models.Statistics{}, fmt.Errorf("failed to count urls: %w", err)
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+	var urls, users int
+	err = dbs.storage.QueryRowContext(ctx, `SELECT COUNT(*) FROM urls WHERE is_deleted = false`).Scan(&urls)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count urls: %w", err)
 	}
 	err = dbs.storage.QueryRowContext(ctx, `SELECT COUNT(DISTINCT user_id) FROM urls WHERE is_deleted = false`).Scan(&users)
 	if err != nil {
-		return models.Statistics{}, fmt.Errorf("failed to count users: %w", err)
+		return nil, fmt.Errorf("failed to count users: %w", err)
 	}
-	return models.Statistics{URLs: urls, Users: users}, nil
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	return &models.Statistics{URLs: urls, Users: users}, nil
 }

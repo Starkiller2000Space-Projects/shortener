@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
 	"time"
 
@@ -103,10 +102,10 @@ func (h *Handler) PostBatchShortenHandler(w http.ResponseWriter, r *http.Request
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// GetUserURLsHandler handles GET /api/user/urls – returns all URLs created by the authenticated user.
+// ListUserURLsHandler handles GET /api/user/urls – returns all URLs created by the authenticated user.
 // Returns 200 OK with a JSON array of { "short_url": "...", "original_url": "..." }.
 // If the user has no URLs, returns 204 No Content.
-func (h *Handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ListUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 	scheme := r.Header.Get("X-Forwarded-Proto")
 	if scheme == "" {
 		scheme = "http"
@@ -124,7 +123,9 @@ func (h *Handler) GetUserURLsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(urls); err != nil {
-		logger.Log.Error("failed to encode response", zap.Error(err))
+		logger.Log.Error("Failed to encode response", zap.Error(err))
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
 	}
 }
 
@@ -164,34 +165,6 @@ func (h *Handler) DeleteUserURLsHandler(w http.ResponseWriter, r *http.Request) 
 
 // StatsHandler returns server statistics
 func (h *Handler) StatsHandler(w http.ResponseWriter, r *http.Request) {
-	if h.trustedSubnet == "" {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return
-	}
-
-	ipStr := r.Header.Get("X-Real-IP")
-	if ipStr == "" {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return
-	}
-
-	_, subnet, err := net.ParseCIDR(h.trustedSubnet)
-	if err != nil {
-		logger.Log.Error("invalid trusted subnet", zap.String("subnet", h.trustedSubnet), zap.Error(err))
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-
-	ip := net.ParseIP(ipStr)
-	if ip == nil {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return
-	}
-
-	if !subnet.Contains(ip) {
-		http.Error(w, http.StatusText(http.StatusForbidden), http.StatusForbidden)
-		return
-	}
 
 	statistics, err := h.service.GetStats(r.Context())
 	if err != nil {
@@ -202,5 +175,10 @@ func (h *Handler) StatsHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(statistics)
+	err = json.NewEncoder(w).Encode(statistics)
+	if err != nil {
+		logger.Log.Error("Failed to encode response", zap.Error(err))
+		http.Error(w, "failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }

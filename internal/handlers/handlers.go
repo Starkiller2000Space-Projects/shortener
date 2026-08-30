@@ -22,14 +22,14 @@ type Handler struct {
 	service            service.Service
 	maxParallelWorkers int
 	waitGroup          *sync.WaitGroup
-	trustedSubnet      string
 }
 
 // NewHandler creates a new Handler with the given service and max parallel workers.
-func NewHandler(service service.Service, maxParallelWorkers int, wg *sync.WaitGroup, trustedSubnet string) *Handler {
-	return &Handler{service: service, maxParallelWorkers: maxParallelWorkers, waitGroup: wg, trustedSubnet: trustedSubnet}
+func NewHandler(service service.Service, maxParallelWorkers int, wg *sync.WaitGroup) *Handler {
+	return &Handler{service: service, maxParallelWorkers: maxParallelWorkers, waitGroup: wg}
 }
 
+// WaitForBackground waits for all background tasks started in handler.
 func (h *Handler) WaitForBackground() {
 	done := make(chan struct{})
 	go func() {
@@ -45,11 +45,11 @@ func (h *Handler) WaitForBackground() {
 	}
 }
 
-// IDHandler handles GET /{id} – redirects to the original URL.
+// ExpandURLHandler handles GET /{id} – redirects to the original URL.
 // If the ID does not exist, returns 400 Bad Request.
 // If the URL has been deleted, returns 410 Gone.
 // It also records an audit follow action.
-func (h *Handler) IDHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ExpandURLHandler(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	w.Header().Set("Content-Type", "text/plain")
 	url, err := h.service.GetOriginalURL(r.Context(), id)
@@ -73,11 +73,11 @@ func (h *Handler) IDHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusTemporaryRedirect)
 }
 
-// PostURLHandler handles POST / – creates a short URL from the plain text body.
+// ShortenURLHandler handles POST / – creates a short URL from the plain text body.
 // The body should contain the original URL.
 // On success, returns 201 Created with the short URL in plain text.
 // If the URL already exists, returns 409 Conflict with the existing short URL.
-func (h *Handler) PostURLHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) ShortenURLHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil || len(body) == 0 {
 		http.Error(w, "Empty body", http.StatusBadRequest)

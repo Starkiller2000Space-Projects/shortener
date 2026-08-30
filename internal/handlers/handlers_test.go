@@ -25,24 +25,23 @@ import (
 )
 
 // create new router for handlers testing
-func newTestRouter(service *MockService, withAudit, withAuth bool) http.Handler {
-	h := NewHandler(service, 100, &sync.WaitGroup{}, "")
+func newTestRouter(service *MockService, middlewares ...func(next http.Handler) http.Handler) http.Handler {
+	h := NewHandler(service, 100, &sync.WaitGroup{})
 
 	r := chi.NewRouter()
-	if withAudit {
-		r.Use(withTestAudit)
-	}
-	if withAuth {
-		r.Use(withTestAuth)
+
+	for _, middleware := range middlewares {
+		r.Use(middleware)
 	}
 	r.Get("/ping", h.PingHandler)
-	r.Get("/{id}", h.IDHandler)
-	r.Post("/", h.PostURLHandler)
+	r.Get("/{id}", h.ExpandURLHandler)
+	r.Post("/", h.ShortenURLHandler)
 	r.Route("/api", func(api chi.Router) {
 		api.Post("/shorten", h.ShortenJSONHandler)
 		api.Post("/shorten/batch", h.PostBatchShortenHandler)
-		api.Get("/user/urls", h.GetUserURLsHandler)
+		api.Get("/user/urls", h.ListUserURLsHandler)
 		api.Delete("/user/urls", h.DeleteUserURLsHandler)
+		api.Get("/internal/stats", h.StatsHandler)
 	})
 	return r
 }
@@ -64,10 +63,8 @@ func withTestAuth(next http.Handler) http.Handler {
 	})
 }
 
-type requestOption func(*http.Request)
-
 // test single request
-func testRequest(t *testing.T, ts *httptest.Server, method, path, body string, options ...requestOption) (*http.Response, string) {
+func testRequest(t *testing.T, ts *httptest.Server, method, path, body string, headers map[string]string) (*http.Response, string) {
 	t.Helper()
 
 	var reader io.Reader
@@ -77,9 +74,8 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path, body string, o
 
 	req, err := http.NewRequest(method, ts.URL+path, reader)
 	require.NoError(t, err)
-
-	for _, opt := range options {
-		opt(req)
+	for key, value := range headers {
+		req.Header.Set(key, value)
 	}
 
 	client := ts.Client()
@@ -97,7 +93,7 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path, body string, o
 }
 
 // test getting url by its id
-func TestIDHandler(t *testing.T) {
+func TestExpandURLHandler(t *testing.T) {
 	fixedID := "test1234"
 	existingURL := "https://example.com/"
 
@@ -192,9 +188,13 @@ func TestIDHandler(t *testing.T) {
 			} else {
 				mockService.AssertNotCalled(t, "GetOriginalURL", mock.Anything, mock.Anything)
 			}
-			ts := httptest.NewServer(newTestRouter(mockService, test.audit, false))
+			var middlewares []func(http.Handler) http.Handler
+			if test.audit {
+				middlewares = append(middlewares, withTestAudit)
+			}
+			ts := httptest.NewServer(newTestRouter(mockService, middlewares...))
 			defer ts.Close()
-			resp, _ := testRequest(t, ts, test.method, fmt.Sprintf("/%v", fixedID), "")
+			resp, _ := testRequest(t, ts, test.method, fmt.Sprintf("/%v", fixedID), "", nil)
 			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 			assert.Equal(t, test.want.contentType, resp.Header.Get("Content-Type"))
@@ -203,11 +203,11 @@ func TestIDHandler(t *testing.T) {
 	}
 }
 
-func BenchmarkIDHandler(b *testing.B) {
+func BenchmarkExpandURLHandler(b *testing.B) {
 	mockSvc := NewMockService(b)
-	mockSvc.On("GetOriginalURL", mock.Anything, "abc123").Return("https://example.com", nil)
+	mockSvc.EXPECT().GetOriginalURL(mock.Anything, "abc123").Return("https://example.com", nil)
 
-	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{}, "")
+	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{})
 	req := httptest.NewRequest(http.MethodGet, "/abc123", nil)
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
 	req = req.WithContext(audit.SetAuditDataToContext(context.WithValue(req.Context(), chi.RouteCtxKey, chi.NewRouteContext()), &models.AuditData{}))
@@ -216,13 +216,13 @@ func BenchmarkIDHandler(b *testing.B) {
 	w := httptest.NewRecorder()
 
 	for b.Loop() {
-		handler.IDHandler(w, req)
+		handler.ExpandURLHandler(w, req)
 		w.Flush()
 	}
 }
 
 // test adding url to storage
-func TestPostURLHandler(t *testing.T) {
+func TestShortenURLHandler(t *testing.T) {
 	fixedID := "test1234"
 
 	type want struct {
@@ -352,9 +352,13 @@ func TestPostURLHandler(t *testing.T) {
 			} else {
 				mockService.AssertNotCalled(t, "CreateShortURL", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 			}
-			ts := httptest.NewServer(newTestRouter(mockService, test.audit, false))
+			var middlewares []func(http.Handler) http.Handler
+			if test.audit {
+				middlewares = append(middlewares, withTestAudit)
+			}
+			ts := httptest.NewServer(newTestRouter(mockService, middlewares...))
 			defer ts.Close()
-			resp, body := testRequest(t, ts, test.method, "/", test.request)
+			resp, body := testRequest(t, ts, test.method, "/", test.request, nil)
 			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 			if !test.want.success {
@@ -374,7 +378,7 @@ func BenchmarkPostURLHandler(b *testing.B) {
 	mockSvc.EXPECT().CreateShortURL(mock.Anything, "https://example.com", mock.Anything, mock.Anything).
 		Return("http://localhost/abc123", nil)
 
-	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{}, "")
+	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{})
 	body := []byte("https://example.com")
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewReader(body))
 	req = req.WithContext(audit.SetAuditDataToContext(requests.SetUserIDToContext(req.Context(), "user123"), &models.AuditData{}))
@@ -382,7 +386,7 @@ func BenchmarkPostURLHandler(b *testing.B) {
 
 	for b.Loop() {
 		req.Body = io.NopCloser(bytes.NewReader(body))
-		handler.PostURLHandler(w, req)
+		handler.ShortenURLHandler(w, req)
 		w.Flush()
 	}
 }
@@ -390,7 +394,7 @@ func BenchmarkPostURLHandler(b *testing.B) {
 func TestPingHandler(t *testing.T) {
 	mockService := NewMockService(t)
 	mockService.EXPECT().Ping(mock.Anything).Return(nil)
-	handler := NewHandler(mockService, 100, &sync.WaitGroup{}, "")
+	handler := NewHandler(mockService, 100, &sync.WaitGroup{})
 
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
 	w := httptest.NewRecorder()
@@ -448,9 +452,9 @@ func TestPingHandler(t *testing.T) {
 			} else {
 				mockService.AssertNotCalled(t, "CreateShortURL", mock.Anything)
 			}
-			ts := httptest.NewServer(newTestRouter(mockService, false, false))
+			ts := httptest.NewServer(newTestRouter(mockService))
 			defer ts.Close()
-			resp, _ := testRequest(t, ts, test.method, "/ping", "")
+			resp, _ := testRequest(t, ts, test.method, "/ping", "", nil)
 			defer resp.Body.Close()
 			assert.Equal(t, test.want.code, resp.StatusCode)
 		})
@@ -459,9 +463,9 @@ func TestPingHandler(t *testing.T) {
 
 func BenchmarkPingHandler(b *testing.B) {
 	mockSvc := NewMockService(b)
-	mockSvc.On("Ping", mock.Anything).Return(nil)
+	mockSvc.EXPECT().Ping(mock.Anything).Return(nil)
 
-	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{}, "")
+	handler := NewHandler(mockSvc, 10, &sync.WaitGroup{})
 	req := httptest.NewRequest(http.MethodGet, "/ping", nil)
 	req = req.WithContext(requests.SetUserIDToContext(req.Context(), "user123"))
 	w := httptest.NewRecorder()

@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 )
 
 func TestAuditMiddleware_Notify(t *testing.T) {
@@ -87,4 +89,76 @@ func BenchmarkAuditMiddleware(b *testing.B) {
 		w := httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 	}
+}
+
+func TestGRPCAuditInterceptor_Notify(t *testing.T) {
+	mockAuditor := NewMockAudit(t)
+	mockAuditor.EXPECT().
+		NotifyAll(mock.MatchedBy(func(event models.AuditEvent) bool {
+			return event.Action == models.AuditFollow &&
+				event.URL == "https://example.com"
+		})).
+		Return((*sync.WaitGroup)(nil)).
+		Once()
+	interceptor := GRPCAuditInterceptor(mockAuditor)
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		auditData, ok := audit.GetAuditDataFromContext(ctx)
+		require.True(t, ok, "audit data should be in context")
+		auditData.Action = models.AuditFollow
+		auditData.URL = "https://example.com"
+		assert.Equal(t, "", auditData.UserID)
+		return "ok", nil
+	}
+
+	ctx := context.Background()
+	info := &grpc.UnaryServerInfo{FullMethod: "/test"}
+	resp, err := interceptor(ctx, nil, info, handler)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "ok", resp)
+	mockAuditor.AssertExpectations(t)
+}
+
+func TestGRPCAuditInterceptor_DoNothing(t *testing.T) {
+	mockAuditor := NewMockAudit(t)
+	mockAuditor.AssertNotCalled(t, "NotifyAll", mock.Anything)
+	interceptor := GRPCAuditInterceptor(mockAuditor)
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		_, ok := audit.GetAuditDataFromContext(ctx)
+		require.True(t, ok, "audit data should be in context")
+		return "ok", nil
+	}
+	ctx := context.Background()
+	info := &grpc.UnaryServerInfo{FullMethod: "/test"}
+	resp, err := interceptor(ctx, nil, info, handler)
+	assert.NoError(t, err)
+	assert.Equal(t, "ok", resp)
+	mockAuditor.AssertExpectations(t)
+}
+
+func TestGRPCAuditInterceptor_WithUserID(t *testing.T) {
+	mockAuditor := NewMockAudit(t)
+	mockAuditor.EXPECT().
+		NotifyAll(mock.MatchedBy(func(event models.AuditEvent) bool {
+			return event.UserID == "user123"
+		})).
+		Return((*sync.WaitGroup)(nil)).
+		Once()
+	interceptor := GRPCAuditInterceptor(mockAuditor)
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		auditData, ok := audit.GetAuditDataFromContext(ctx)
+		require.True(t, ok)
+		auditData.Action = models.AuditShorten
+		auditData.URL = "http://short"
+		auditData.UserID = "user123"
+		return "ok", nil
+	}
+
+	ctx := context.Background()
+	info := &grpc.UnaryServerInfo{FullMethod: "/test"}
+	resp, err := interceptor(ctx, nil, info, handler)
+
+	assert.NoError(t, err)
+	assert.Equal(t, "ok", resp)
+	mockAuditor.AssertExpectations(t)
 }

@@ -15,13 +15,18 @@ import (
 	"go.uber.org/zap"
 )
 
+type GRPCService interface {
+	CreateShortURL(ctx context.Context, original, scheme, host string) (string, error)
+	GetOriginalURL(ctx context.Context, short string) (string, error)
+	GetUserURLs(ctx context.Context, scheme, host string) ([]models.UserURL, error)
+}
+
 // Service defines the business logic interface for URL shortening.
 //
 //go:generate mockery --name=Service --output=../handlers --outpkg=handlers --filename=mock_service.gen._test.go --with-expecter --structname=MockService
 //go:generate mockery --name=Service --output=../server --outpkg=server --filename=mock_service.gen._test.go --with-expecter --structname=MockService
 type Service interface {
-	CreateShortURL(ctx context.Context, original, scheme, host string) (string, error)
-	GetOriginalURL(ctx context.Context, short string) (string, error)
+	GRPCService
 	Ping(ctx context.Context) error
 	CreateShortURLsBatch(
 		ctx context.Context,
@@ -29,9 +34,8 @@ type Service interface {
 		scheme string,
 		host string,
 	) ([]models.BatchShortenResponse, error)
-	GetUserURLs(ctx context.Context, scheme, host string) ([]models.UserURL, error)
 	DeleteUserURLs(ctx context.Context, userID string, shortIDs []string) error
-	GetStats(ctx context.Context) (models.Statistics, error)
+	GetStats(ctx context.Context) (*models.Statistics, error)
 }
 
 // NewEndpointService creates a new service implementation with the given storage,
@@ -191,6 +195,6 @@ func (service *endpointService) DeleteUserURLs(ctx context.Context, userID strin
 }
 
 // GetStats collects server statistics and returns it as an struct
-func (service *endpointService) GetStats(ctx context.Context) (models.Statistics, error) {
+func (service *endpointService) GetStats(ctx context.Context) (*models.Statistics, error) {
 	return service.storage.GetStats(ctx)
 }

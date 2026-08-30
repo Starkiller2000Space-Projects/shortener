@@ -4,9 +4,9 @@ lint:
 	gofmt -w .
 	goimports -w .
 
-
 static-lint:
-	go run ./cmd/staticlint/main.go ./...
+	go run ./cmd/staticlint/main.go ./cmd/...
+	go run ./cmd/staticlint/main.go ./internal/...
 
 test:
 	go test -coverprofile=coverage.out ./internal/...
@@ -58,3 +58,6 @@ pprof-compare:
 
 resets:
 	go run ./cmd/reset/main.go
+
+proto:
+	protoc --go_opt=default_api_level=API_OPAQUE --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative api/shortener.proto
